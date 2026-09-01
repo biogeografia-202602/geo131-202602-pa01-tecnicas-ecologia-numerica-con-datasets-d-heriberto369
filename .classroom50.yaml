@@ -1,0 +1,12 @@
+schema: "classroom50/repo-config/v1"
+classroom: "geo131-202602"
+assignment: "pa01-tecnicas-ecologia-numerica-con-datasets-d"
+owner:
+  username: "Heriberto369"
+  id: 318386209
+  accepted_at: "2026-09-01T23:24:49Z"
+source:
+  owner: "biogeografia-202602"
+  owner_id: 318275519
+  repo: "biogeografia-202602-pa01-tecnicas-ecologia-numerica-con-datasets-de-r-tecnicas-ecologia-numerica-con"
+  branch: "main"

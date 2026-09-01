@@ -1,0 +1,884 @@
+---
+title: "Técnicas de ecología numérica con *datasets* de R"
+author: "Biogeografía (GEO-131)"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  # bookdown::github_document2:
+  #   number_sections: false
+  #   fig_caption: yes
+  #   toc: true
+  #   toc_depth: 4
+  bookdown::html_document2:
+    number_sections: false
+    code_folding: hide
+    fig_caption: yes
+    md_extensions: "-fancy_lists"
+    css: estilos.css
+    toc: true
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, comment = "#>")
+set.seed(123)
+# Paquetes base de tu cuaderno + SDM opcional (protegido)
+pkg_needed <- c("vegan", "cluster", "indicspecies", "adespatial",
+                "sp", "raster", "dismo", "iNEXT", "SpadeR", "ggplot2", "devtools")
+has_pkg <- sapply(pkg_needed, function(p) requireNamespace(p, quietly = TRUE))
+if (!all(has_pkg)) {
+  message("Paquetes no críticos ausentes (se omitirán bloques opcionales): ",
+          paste(names(has_pkg)[!has_pkg], collapse=", "))
+}
+# Podemos cargar múltiples paquetes, así:
+sapply(pkg_needed, function(x) library(x, character.only = T))
+```
+
+```{r, include=F}
+output_format <- knitr::opts_knit$get("rmarkdown.pandoc.to")
+repo_url <- system("git config --get remote.origin.url", intern = TRUE)
+repo_name <- sub(".git$", "", basename(repo_url))
+org_name <- basename(dirname(repo_url))
+rmd_filename <- tools::file_path_sans_ext(basename(knitr::current_input()))
+github_pages_url <- paste0("https://", org_name, ".github.io/", repo_name, "/", rmd_filename, ".html")
+```
+
+```{r, results='asis', echo=F}
+if (grepl('gfm', output_format)) {
+  cat('Versión HTML (quizá más legible), [aquí](', github_pages_url, ')\n', sep = '')
+} else if (output_format == 'latex') {
+  cat('Versión HTML (quizá más legible), [aquí](', github_pages_url, ')\n', sep = '')
+}
+```
+
+# Fecha/hora de entrega
+
+**Ver portal de la asignatura**
+
+# Introducción
+
+> ## Objetivo transversal: auditar críticamente a la IA
+>
+> En esta práctica, además de desarrollar el ejercicio elegido y alcanzar sus "objetivos biogeográficos", deberás **usar y someter a evaluación crítica herramientas de inteligencia artificial**. Durante el desarrollo del trabajo deberás identificar **al menos un error, limitación, simplificación injustificada o respuesta problemática producida por la IA**, y demostrar por qué lo es.
+>
+> El problema detectado puede ser **técnico-metodológico** (código, datos, métodos, procedimientos o su aplicación), **conceptual-disciplinar** (conceptos, teorías o procesos biogeográficos/ecológicos) o **inferencial-epistemológico** (interpretación de la evidencia, supuestos, causalidad, alcance de las conclusiones o aquello que los datos permiten afirmar). **No es necesario encontrar problemas de las tres categorías.**
+>
+> No basta con afirmar que «la IA se equivocó». Deberás conservar evidencia de la respuesta problemática, **explicar exactamente dónde está el problema, contrastarla mediante fuentes, datos, documentación técnica, resultados reproducibles o razonamiento disciplinar, y mostrar cuál sería la respuesta, interpretación o procedimiento correcto o mejor fundamentado**. Esta auditoría deberá quedar documentada en el manuscrito y será presentada y defendida oralmente en clase.
+
+
+Esta práctica forma parte del enfoque central de la asignatura: **aprender biogeografía y ecología numérica resolviendo problemas reales y comunicando resultados** en formato científico.
+
+A diferencia de un cuaderno de “ejercicios sueltos”, aquí trabajarás bajo un esquema de **práctica integradora (taller + defensa)**. Tu tarea será **elegir un (1) ejercicio** de los propuestos (de un conjunto más amplio disponible en el cuaderno completo) y convertirlo en un **problema biogeográfico/ecológico bien formulado** que culmine en dos productos:
+
+1. Un **manuscrito científico reproducible** (RMarkdown, ejecutable de inicio a fin), y
+2. Una **presentación oral** (diapositivas, 17 min + 3 min de preguntas).
+
+El punto clave es que, aunque solo desarrolles **un ejercicio**, el manuscrito deberá **forzar un recorrido amplio por la teoría de la unidad**: conceptos, supuestos, decisiones analíticas, interpretación, limitaciones y conclusiones. Es decir: **el ejercicio es el caso**, pero **la teoría es el mapa** que debes recorrer y evidenciar.
+
+Se permite realizar la práctica **de forma individual o en grupos de dos**. En ambos casos, durante la defensa oral **cada integrante debe demostrar dominio completo** del trabajo (datos, decisiones, código, resultados e interpretación).
+
+> **Tutoría con IA (supervisada):** puedes usar IA generativa para estudiar teoría, depurar código y mejorar redacción técnica, pero debes **verificar y documentar** todo (fuentes, decisiones, supuestos). La evaluación se basa en tu **razonamiento y validación**, no en texto generado.
+
+# Qué debes producir (entregables)
+
+## Entregable 1: Manuscrito reproducible (obligatorio)
+
+Tu manuscrito deberá incluir, al menos:
+
+* **Título** (informativo; no “Práctica X”).
+* **Introducción**: contexto + qué problema resuelves + por qué importa.
+* **Preguntas / hipótesis** (explícitas).
+* **Datos**: origen del dataset, diseño de muestreo, variables, limitaciones.
+* **Métodos** (declarados y justificadas tus decisiones):
+  * transformaciones,
+  * medidas de distancia,
+  * técnica elegida (ordenación, diversidad, agrupamiento, PERMANOVA, etc.),
+  * supuestos / verificaciones básicas.
+* **Resultados**: tablas/figuras + narrativa.
+* **Discusión**: interpretación conectada con la teoría; qué significa y qué no.
+* **Auditoría crítica de IA**: evidencia de al menos un error o limitación detectado, demostración del problema, fuentes o evidencias utilizadas para contrastarlo y corrección o alternativa fundamentada.
+* **Aporte**: qué aprendimos o qué evidencia generaste (aunque sea pequeña).
+* **Limitaciones**: reales, metodológicas y de datos.
+* **Conclusiones**: defendibles.
+* **Reproducibilidad**: código ejecutable de inicio a fin, sin pasos manuales ocultos.
+
+## Entregable 2: Presentación oral (obligatorio)
+
+* **17 minutos de exposición + 3 minutos de preguntas**.
+* Debe cubrir: problema, datos, método, resultados, interpretación, limitaciones.
+* Debe explicar: problema, enfoque, evidencia principal (tabla/figura/mapas), conclusiones y limitaciones, e incluir una sección explícita de **auditoría crítica de IA**, en la que se presente y demuestre el error o limitación identificado.
+
+
+# Cómo se organiza la práctica (ciclo estándar + entregas parciales)
+
+La práctica puede ocupar varios días de clase. La regla general es:
+
+* **En casa:** avanzas cada apartado del manuscrito (con apoyo de IA si quieres) y vienes al aula con avances concretos y dudas específicas.
+* **En aula:** el tiempo se usa para **taller**, resolución de problemas, validación de reproducibilidad, revisión rápida del razonamiento y preparación/defensa.
+
+# Qué debes elegir (ejercicio)
+
+En el cuaderno completo existen múltiples ejercicios (ordenaciones, diversidad alfa/beta, agrupamientos, PERMANOVA, estimadores de riqueza, estructura espacial, SDM introductorio, etc.). Para esta práctica:
+
+* Elige **un (1) ejercicio** (uno solo).
+* No elijas por “poco código”: los ejercicios con menos código suelen exigir más comprensión.
+* La práctica es de asignación individual, y no se permiten ejercicios repetidos entre personas.
+
+# Cómo usar los ejercicios (reglas del juego)
+
+* Ejecuta e intenta entender el código del ejercicio elegido; luego **adáptalo** a tus preguntas (no lo corras “tal cual”).
+* Investiga (con apoyo de IA si quieres) pero **verifica**:
+
+  * origen del dataset, muestreo y variables (`?dune`, `?varespec`, etc.),
+  * supuestos de la técnica,
+  * qué representa cada salida (ejes, distancias, centroides, dispersión, etc.).
+* Declara y justifica decisiones analíticas (transformaciones, distancias, parámetros).
+* Incluye limitaciones: del dataset y del método.
+* **Usa IA, pero audítala.** Supervisa, contrasta y verifica sus respuestas. Conserva evidencia de los errores o limitaciones que detectes durante el trabajo para documentar la auditoría crítica exigida en esta práctica.
+
+# Evaluación
+
+* **Manuscrito (70%)**
+
+  * Problema y marco teórico (20)
+  * Metodología documental y trazabilidad (10)
+  * Evidencia (tabla/figura/mapa) y calidad interpretativa (20)
+  * Discusión, limitaciones y conclusiones (10)
+  * Auditoría crítica de IA (10)
+
+* **Presentación oral (20%)**
+
+  * Claridad, estructura, uso de evidencia (tabla/figura), respuesta a preguntas
+
+* **Proceso (10%)**
+
+  * Cumplimiento de entregas parciales y trabajo sostenido
+
+# Criterios de calidad (lo que se espera)
+
+* Texto claro, sin relleno.
+* Conceptos definidos y usados con precisión.
+* Argumentación sustentada en fuentes.
+* Tabla/figura informativa y correctamente titulada.
+* Conclusiones que respondan a la pregunta.
+* Limitaciones explícitas (qué no puedes afirmar con tu evidencia).
+* **Auditoría crítica de IA**: se valora la capacidad de identificar, demostrar, explicar y corregir un error o limitación **técnico-metodológica, conceptual-disciplinar o inferencial-epistemológica**. La calidad de la auditoría se evalúa por la solidez de la demostración y del contraste realizado, **no por la cantidad de errores encontrados ni por cubrir todas las categorías**.
+
+---
+
+# Ejercicio 01 · EDA + diversidad + clúster (dune)
+
+**Objetivo.** Reforzar AED, diversidad alfa/beta y agrupamiento jerárquico (UPGMA) con `dune` (comunidades de plantas) y `dune.env` (ambiente).
+
+## **Dataset.**
+
+```{r}
+library(vegan)
+data(dune); data(dune.env)
+dim(dune); dim(dune.env)
+head(dune[,1:6]); head(dune.env)
+```
+
+## **Código de ayuda**
+
+1. **EDA** de variables ambientales:
+
+```{r}
+summary(dune.env)
+table(dune.env$Management)
+boxplot(A1 ~ Moisture, data=dune.env, main="A1 por humedad")
+boxplot(A1 ~ Management, data=dune.env, main="A1 por Manejo")
+```
+
+2. **Diversidad alfa** (Shannon/Simpson) y **riqueza** por sitio:
+
+```{r}
+div_sh <- diversity(dune, "shannon")
+div_si <- diversity(dune, "simpson")
+rich   <- specnumber(dune)
+plot(div_sh, type="h", main="Shannon por sitio", xlab="Sitio", ylab="H'")
+```
+
+3. **Distancias Bray–Curtis** y **clúster UPGMA** (average):
+
+```{r}
+d_bc <- vegdist(dune, method="bray")
+clu  <- hclust(d_bc, method="average")
+plot(clu, main="Dendrograma (Bray–Curtis + UPGMA)")
+```
+
+## **Ideas de ayuda**
+
+0. **Preguntas guía para responder.** ¿Cuántos grupos cortarías? ¿Se asocian con `Management`, `Moisture` o `A1`?
+
+1. **Interpreta**: explica qué te dicen los grupos sobre la composición y cómo se relacionan (o no) con `Management`/`A1`.
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., ¿qué especies definen cada grupo?, ¿hay gradientes ambientales subyacentes?).
+
+3. **Reflexiona** sobre implicaciones **ecológicas/biogeográficas** y, si aplica, **de conservación** (p. ej., manejo diferenciado por grupos).
+
+---
+
+# Ejercicio 02 · Modos Q/R y paradoja de Orlóci
+
+**Objetivo.** Comparar **modo Q** (sitios) vs **modo R** (variables), y mostrar cómo **transformaciones** y **medidas** cambian conclusiones (paradoja de Orlóci).
+
+## Dataset y código de ayuda
+
+```{r}
+data(varespec); data(varechem)
+# Modo Q: distancias entre sitios con abundancias crudas vs Hellinger
+d_raw <- vegdist(varespec, "bray")
+sp_hel <- decostand(varespec, "hellinger")
+d_hel <- dist(sp_hel)  # euclídea sobre Hellinger
+par(mfrow=c(1,2)); plot(hclust(d_raw), main="Clúster (Bray, crudo)")
+plot(hclust(d_hel), main="Clúster (Euclídea, Hellinger)"); par(mfrow=c(1,1))
+```
+
+```{r}
+# Modo R: correlaciones entre variables ambientales
+cor_mat <- cor(varechem)
+round(cor_mat, 2)
+```
+
+## **Ideas de ayuda**
+
+0. **Describe diferencias entre dendrogramas y justifica elección** de transformación/distancia.**
+
+1. **Interpreta** las discrepancias entre modos Q/R y su causa.
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., ¿qué transformación estabiliza mejor la varianza?, ¿qué variables redundantes detecta el modo R?).
+
+3. **Reflexiona** sobre implicaciones para comparar sitios y para el diseño de muestreo/variables.
+
+---
+
+# Ejercicio 03 · NMDS + envfit (dune)
+
+**Objetivo.** Realizar **NMDS** (Bray) y ajustar vectores ambientales (`envfit`).
+
+## Dataset y código de ayuda
+
+```{r}
+set.seed(123)
+m <- metaMDS(dune, distance="bray", k=2, trymax=50)
+m$stress
+plot(m, type="t", main=paste("NMDS (stress =", round(m$stress,3),")"))
+ef <- envfit(m ~ A1 + Moisture + Management, data = dune.env, permutations=999)
+ef
+plot(ef, col="red")
+```
+
+## **Ideas de ayuda**
+
+0. **Preguntas guía para responder.** ¿Qué variables se alinean con el gradiente principal? ¿Cómo interpretar signos y longitudes de flechas?
+
+1. **Interpreta** el diagrama (orientaciones, longitudes, stress).
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., ¿qué pasa si excluimos una variable?, ¿coinciden clusters de Ejercicio 01 con ejes NMDS?).
+
+3. **Reflexiona** sobre gradientes ambientales y decisiones de manejo.
+
+---
+
+# Ejercicio 04 · PCA vs CA (varechem/varespec)
+
+**Objetivo.** Comparar **PCA** sobre ambiente (escalado) y **CA** sobre especies.
+
+## Dataset y código de ayuda
+
+```{r}
+# PCA en ambiente
+pca_env <- rda(scale(varechem))
+plot(pca_env, main="PCA de variables ambientales (escaladas)")
+# CA en especies (adecuado para conteos/distribuciones sesgadas)
+ca_sp <- cca(varespec)  # CA clásica
+plot(ca_sp, main="CA de comunidades (varespec)")
+```
+
+## **Ideas de ayuda**
+
+0. **Contrasta supuestos de PCA (lineal) vs CA (chi-cuadrado) y cuándo usar cada uno**.
+
+1. **Interpreta** ambos biplots y sus supuestos.
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., ¿qué especies/variables dominan cada eje?, ¿cómo cambian resultados con estandarización diferente?).
+
+3. **Reflexiona** sobre elección de técnica según la pregunta biogeográfica.
+
+---
+
+# Ejercicio 05 · RDA (Hellinger) y varianza explicada
+
+**Objetivo.** Modelar composición (Hellinger) con RDA y cuantificar varianza explicada.
+
+## Dataset y código de ayuda
+
+```{r}
+Y <- decostand(varespec, "hellinger")
+rda_mod <- rda(Y ~ Al + P + K + pH, data=varechem)
+summary(rda_mod)
+anova(rda_mod, permutations=999)
+Rsq <- RsquareAdj(rda_mod); Rsq
+plot(rda_mod, main="RDA (Hellinger) ~ Al + P + K + pH")
+```
+
+## **Ideas de ayuda**
+
+0. **Preguntas guía para responder.** ¿Cuánta varianza ajustada explica el modelo? ¿Qué variables son más importantes?
+
+1. **Interpreta** coeficientes/cargas y $R^2_{aj}$.
+
+2. **Dos preguntas** (p. ej., ¿qué ocurre si colinealidad?, ¿qué variables añadir/quitar?).
+
+3. **Reflexiona** sobre mecanismos ambientales que estructuran comunidades.
+
+---
+
+# Ejercicio 06 · Partición de varianza ambiente vs espacio (mite)
+
+**Objetivo.** Separar efectos **ambientales** y **espaciales** usando `varpart` con coordenadas polinomiales (superficies de tendencia).
+
+## Dataset y código de ayuda
+
+```{r}
+data(mite); data(mite.env); data(mite.xy)
+Y <- decostand(mite, "hellinger")
+# Polinomios espaciales (x, y, x^2, y^2, xy)
+S <- with(mite.xy, data.frame(x, y, x2 = x^2, y2 = y^2, xy = x*y))
+vpart <- varpart(Y, mite.env[,c("SubsDens","WatrCont","Substrate")], S)
+vpart
+plot(vpart, bg=c("steelblue","orange"), Xnames=c("Ambiente","Espacio"))
+```
+
+## **Ideas de ayuda**
+
+0. Interpreta los **componentes**: solo ambiente, solo espacio, compartido, residuo.
+
+1. **Interpreta** la fracción compartida (espacio–ambiente).
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., ¿hay dispersión limitada?, ¿qué escala espacial falta?).
+
+3. **Reflexiona** sobre procesos ecológicos y planes de muestreo espacial.
+
+---
+
+# Ejercicio 07 · PERMANOVA + betadisper (dune)
+
+**Objetivo.** Probar diferencias de **composición** entre niveles de `Management` y verificar **homogeneidad de dispersión**.
+
+## Dataset y código de ayuda
+
+```{r}
+d <- vegdist(dune, "bray")
+adon <- adonis2(d ~ Management, data=dune.env, permutations=999)
+adon
+bd <- betadisper(d, group = dune.env$Management)
+anova(bd); permutest(bd)
+plot(bd, main="Dispersión multivariante por manejo")
+```
+
+## **Ideas de ayuda**
+
+0. **Preguntas guía para responder.** ¿Las diferencias entre grupos son por **centroides** (composición) o por **dispersión** (heterogeneidad)?
+
+1. **Interpreta** `adonis2` y `betadisper` conjuntamente.
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., ¿hay pseudo-replicación?, ¿deberíamos estratificar permutaciones?).
+
+3. **Reflexiona** sobre decisiones de manejo basadas en composición/dispersión.
+
+---
+
+# Ejercicio 08 · Especies indicadoras
+
+**Objetivo.** Identificar **especies indicadoras** de grupos de sitios.
+
+## Dataset y código de ayuda
+
+```{r, results='asis'}
+ok_ind <- requireNamespace("indicspecies", quietly = TRUE)
+if (ok_ind) {
+  library(indicspecies)
+  d_br <- vegdist(dune, "bray")
+  gr <- cutree(hclust(d_br, "average"), k = 3)
+  iv <- multipatt(dune, gr, func="IndVal.g", control = how(nperm=499))
+  print(summary(iv, indvalcomp=TRUE, alpha=0.05))
+} else {
+  cat("**Paquete 'indicspecies' no instalado.** Interprete grupos del Ejercicio 01 y discuta posibles indicadoras.")
+}
+```
+
+## **Ideas de ayuda**
+
+0. **Reporta especies indicadoras (valor de $p$).**
+
+1. **Interpreta** significancia y valor indicador.
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., ¿indicadoras cambian con k?, ¿estabilidad temporal?).
+
+3. **Reflexiona** sobre bioindicación y conservación de hábitats clave.
+
+---
+
+# Ejercicio 09 · Acumulación y rarefacción (BCI)
+
+**Objetivo.** Evaluar riqueza con **curvas de acumulación** y **rarefacción**.
+
+## Dataset y código de ayuda
+
+```{r}
+data(BCI)  # 50 ha, conteos por especie en parcelas
+spec_acc <- specaccum(BCI, method="random")
+plot(spec_acc, ci.type="poly", col="blue", lwd=2, ci.lty=0, ci.col=adjustcolor("lightblue",0.5),
+     main="Curva de acumulación de especies (BCI)")
+rarecurve(BCI, step=20, sample=min(rowSums(BCI)), col="grey", label=FALSE)
+```
+
+## **Ideas de ayuda**
+
+0. **Preguntas guía para responder.** ¿La curva tiende a **saturación**? ¿Qué implica para el muestreo?
+
+1. **Interpreta** forma de la curva y CIs.
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., ¿cuánto esfuerzo adicional lograría *x* especies?, ¿diferencias entre parcelas?).
+
+3. **Reflexiona** sobre planificación de muestreos y costos/beneficios.
+
+---
+
+# Ejercicio 10 · Procrustes: comparar ordenaciones
+
+**Objetivo.** Comparar configuraciones de puntos con **rotación de Procrustes** y prueba `protest`.
+
+## Dataset y código de ayuda
+
+```{r}
+# Comparar NMDS de especies vs PCoA de ambiente (Gower)
+library(vegan)
+library(cluster)
+data(dune); data(dune.env)
+
+## 1) NMDS en especies (Bray-Curtis)
+set.seed(1)
+nmds <- metaMDS(dune, distance = "bray", k = 2, trymax = 50)
+
+## 2) Distancia Gower para ambiente (admite factores y numéricas)
+Dg <- daisy(dune.env, metric = "gower")
+
+## 3) PCoA (cmdscale) sobre Gower
+pcoa <- cmdscale(as.dist(Dg), k = 2, eig = TRUE)
+
+## 4) Procrustes (sitios vs sitios)
+X <- scores(nmds, display = "sites")      # coordenadas NMDS
+Y <- pcoa$points                          # coordenadas PCoA (ambiente)
+
+pr <- procrustes(X, Y, symmetric = TRUE)
+plot(pr, main = "Procrustes: NMDS (especies) vs PCoA Gower (ambiente)")
+
+## 5) PROTEST (prueba de concordancia)
+protest(X, Y, permutations = 999)
+```
+
+## **Ideas de ayuda
+
+0. **Interpreta longitudes de segmentos y valor de la prueba**.
+
+1. **Interpreta** ajuste global y desajustes puntuales.
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., ¿qué sitios rompen la concordancia?, ¿qué variable ambiental falta?).
+
+3. **Reflexiona** sobre concordancia biota–ambiente en tu sistema de estudio.
+
+---
+
+# Ejercicio 11 · Elegir k con silhouette
+
+**Objetivo.** Seleccionar número de **clústers** con **ancho de silueta**.
+
+## Dataset y código de ayuda
+
+```{r}
+library(cluster)
+d <- vegdist(varespec, "bray")
+sil_scores <- sapply(2:8, function(k){
+  gr <- cutree(hclust(d, "ward.D2"), k)
+  mean(silhouette(gr, d)[, "sil_width"])
+})
+plot(2:8, sil_scores, type="b", xlab="k", ylab="Ancho medio de silueta")
+best_k <- which.max(sil_scores) + 1; best_k
+```
+
+## **Ideas de ayuda**
+
+0. **Preguntas guía para responder.** ¿Qué k maximiza la coherencia? Visualiza el dendrograma con ese corte.
+
+1. **Interpreta** el valor máximo y alternativas cercanas.
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., ¿estabilidad de k ante otras distancias?, ¿cambios si estandarizamos?).
+
+3. **Reflexiona** sobre el significado ecológico de los clústers.
+
+---
+
+# Ejercicio 12 · CCA (varespec \~ varechem)
+
+**Objetivo.** Relacionar composición con ambiente con **CCA** (respuesta unimodal).
+
+## Dataset y código de ayuda
+
+```{r}
+cca_mod <- cca(varespec ~ Al + P + K + pH, data=varechem)
+anova(cca_mod); anova(cca_mod, by="term", permutations=999)
+plot(cca_mod, main="CCA: varespec ~ Al + P + K + pH")
+```
+
+## **Ideas de ayuda**
+
+0. **Pregunta guía para responder.** ¿Qué variables explican ejes canónicos significativos?
+
+1. **Interpreta** la ordenación y significancias por término.
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., ¿existen efectos no lineales?, ¿qué sitios extremos aparecen?).
+
+3. **Reflexiona** sobre gradientes y nichos unimodales.
+
+---
+
+# Ejercicio 13 · db-RDA / capscale (distancia no euclídea)
+
+**Objetivo.** Usar **capscale** (db-RDA) con Bray–Curtis y covariables.
+
+## Dataset y código de ayuda
+
+```{r}
+db <- capscale(dune ~ Management + Condition(Moisture), data=dune.env, distance="bray")
+anova(db); anova(db, by="terms", permutations=999)
+plot(db, main="db-RDA: Management | Moisture (Bray)")
+```
+
+## **Ideas de ayuda**
+
+0. **Pregunta guía para responder.** ¿Qué aporta condicionar por `Moisture`?
+
+1. **Interpreta** el efecto parcializado de `Management`.
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., ¿qué otras covariables controlar?, ¿cambia la varianza explicada?).
+
+3. **Reflexiona** sobre control de confusores en biogeografía.
+
+---
+
+# Ejercicio 14 · Tendencia espacial (polinomios) vs MEM/PCNM (opcional)
+
+**Objetivo.** Contrastar **superficies de tendencia** con **eigenvectores espaciales** (si está `adespatial`).
+
+## Dataset y código de ayuda
+
+```{r, results='asis'}
+library(vegan)
+data(mite); data(mite.xy)
+
+# Respuesta Hellinger
+Y <- as.data.frame(decostand(mite, "hellinger"))
+
+# Asegurar correspondencia 1–a–1 por si antes filtraste algo (opcional)
+keep <- complete.cases(mite.xy$x, mite.xy$y)
+Y2   <- Y[keep, , drop = FALSE]
+xy2  <- mite.xy[keep, , drop = FALSE]
+
+# RDA con polinomios construidos en la fórmula
+mod_poly <- rda(Y2 ~ x + y + I(x^2) + I(y^2) + I(x*y), data = xy2)
+anova(mod_poly)
+cat("Modelo polinómico ajustado.\n")
+```
+
+## **Ideas de ayuda**
+
+0. **Compara varianza explicada por tendencia vs MEM.**
+
+1. **Interpreta** la forma espacial capturada por la tendencia.
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., ¿qué escalas detectan MEM adicionales?, ¿hay borde/anisotropía?).
+
+3. **Reflexiona** sobre procesos espaciales y dispersión.
+
+---
+
+# Ejercicio 15 · Diversidad beta (índices y partición)
+
+**Objetivo.** Calcular **beta-diversidad** con distintos índices y discutir su **partición** en componentes de recambio y anidamiento.
+
+## Dataset y código de ayuda
+
+```{r}
+library(vegan)
+library(betapart)
+
+# Datos de ejemplo
+data(varespec)
+
+# Matriz de presencia-ausencia
+va_pa <- decostand(varespec, "pa")
+
+# ---- Índices de disimilitud ----
+d_jac <- vegdist(va_pa, "jaccard")                     # Jaccard
+d_sor <- vegdist(va_pa, method="bray", binary=TRUE)    # Sørensen binario
+d_bray <- vegdist(varespec, "bray")                    # Bray-Curtis (abundancias)
+
+bd <- betadiver(va_pa, method="w")  # Whittaker (gamma/alpha - 1)
+
+summary(as.vector(d_jac))
+summary(as.vector(d_bray))
+
+hist(as.vector(d_jac), 
+     main="Distribución de disimilitudes Jaccard", 
+     xlab="d_J")
+
+# ---- Partición: turnover vs nestedness ----
+bp <- betapart.core(va_pa)
+bp_sor <- beta.pair(bp)   # Sørensen → turnover + nestedness
+bp_jac <- beta.pair(bp, index.family="jaccard")
+
+bp_sor$beta.sor  # disimilitud total
+bp_sor$beta.sim  # recambio (turnover)
+bp_sor$beta.sne  # anidamiento
+
+# ---- Contribuciones locales (opcional, requiere adespatial) ----
+if (requireNamespace("adespatial", quietly = TRUE)) {
+  library(adespatial)
+  bd_lcbd <- beta.div(va_pa, method="jaccard", sqrt.D=TRUE, nperm=999)
+  bd_lcbd$LCBD[1:10]   # primeras contribuciones locales
+}
+```
+
+## **Ideas de ayuda**
+
+0. **Explica** cuándo preferir índices asimétricos (ignoran dobles ceros) y cómo cambia la historia con abundancias vs. presencia-ausencia.
+
+1. **Interpreta** las distribuciones de disimilitud y su rango.
+
+2. **Compara** la proporción de recambio vs. anidamiento en los resultados de la partición (ej. Sørensen → `beta.sim` vs. `beta.sne`).
+
+3. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (ej.: ¿qué contribución hace cada sitio a β?, ¿predomina recambio o anidamiento?).
+
+4. **Reflexiona** sobre conectividad y manejo a escala de paisaje.
+
+---
+
+# Ejercicio 16 · Diversidad alfa con estimadores de Chao (SpadeR, iNEXT)
+
+**Objetivo.** Estimar índices de diversidad, estimar y comparar **riqueza observada** y **riqueza esperada (Chao)**, y construir **curvas de rarefacción/extrapolación** usando **SpadeR** e **iNEXT** con el dataset **BCI**. Se muestra también cómo invocar la función `estimacion_riqueza_chao` desde tu repositorio (opcional).
+
+## Dataset y código de ayuda
+
+```{r}
+# Paquetes necesarios (bloques opcionales protegidos)
+ok_vegan  <- requireNamespace("vegan",  quietly = TRUE)
+ok_iNEXT  <- requireNamespace("iNEXT",  quietly = TRUE)
+ok_SpadeR <- requireNamespace("SpadeR", quietly = TRUE)
+ok_ggplot <- requireNamespace("ggplot2", quietly = TRUE)
+ok_devtools <- requireNamespace("devtools", quietly = TRUE)
+
+if (!ok_vegan) stop("Instala 'vegan' para usar BCI.")
+
+library(vegan)
+data(BCI)             # Matriz: 50 parcelas x especies (abundancias)
+
+# 1) Métricas alfa básicas por parcela (vegan): Riqueza, Shannon, Hill números
+rich <- specnumber(BCI)                 # N0
+H    <- diversity(BCI, index = "shannon")
+N1   <- exp(H)                          # Hill q=1
+N2   <- diversity(BCI, index = "inv")   # Inverso de Simpson (Hill q=2)
+
+alpha_tab <- data.frame(
+  Parcela = seq_len(nrow(BCI)),
+  Riqueza_obs = rich,
+  Shannon = H,
+  Hill1 = N1,
+  Hill2 = N2
+)
+head(alpha_tab, 10)
+```
+
+El gráfico y tabla a continuación muestran, de forma consolidada en una única tabla y gráfico, un resumen de estimación de riqueza por parcelas de PCI.
+
+```{r}
+# 2) Selección de un subconjunto de parcelas para curvas iNEXT (para gráficos legibles)
+set.seed(123)
+sel <- c(1, 10, 20, 30, 40)  # Fijo para reproducibilidad
+
+# 3) Curvas de rarefacción/extrapolación e índices de Chao (opcional si están iNEXT/SpadeR)
+if (ok_iNEXT && ok_SpadeR && ok_ggplot) {
+  library(iNEXT); library(SpadeR); library(ggplot2)
+
+  # Preparar objeto de ensamblajes para iNEXT: lista de vectores de abundancias
+  ensamblajes <- lapply(sel, function(i) as.numeric(BCI[i, ]))
+  names(ensamblajes) <- paste0("P", sel)
+
+  # iNEXT para riqueza (q=0)
+  out_inext <- iNEXT(ensamblajes, q = 0, datatype = "abundance", knots = 200)
+  print(ggiNEXT(out_inext, type = 1) + theme_bw() +
+          labs(x = "Número de individuos", y = "Riqueza de especies",
+               title = "Curvas de rarefacción / extrapolación (iNEXT)"))
+
+  # Estimadores de riqueza de Chao para el conjunto total y para el subconjunto
+  chao_total <- SpadeR::ChaoSpecies(colSums(BCI), datatype = "abundance", conf = 0.95)
+  chao_total_sp_df <- as.data.frame(chao_total$Species_table)
+  chao_sel   <- lapply(ensamblajes, function(v) SpadeR::ChaoSpecies(v, datatype = "abundance", conf = 0.95))
+  chao_sel_sp_df   <- lapply(chao_sel, function(v) as.data.frame(v$Species_table))
+
+  chao_df <- data.frame(
+    Unidad  = c("BCI_total", names(chao_sel)),
+    S_obs   = c(
+      with(chao_total$Basic_data_information, as.numeric(Value[Variable=='D'])),
+      as.vector(sapply(
+        chao_sel,
+        function(z)
+          as.numeric(with(z$Basic_data_information, Value[Variable=='D']))))),
+    S_chao1   = c(
+      chao_total_sp_df[
+        grep('Chao1 \\(Chao, 1984\\)', rownames(chao_total_sp_df)),
+        grep('Estimate', colnames(chao_total_sp_df))],
+      as.vector(sapply(chao_sel_sp_df, function(z) z[
+        grep('Chao1 \\(Chao, 1984\\)', rownames(z)),
+        grep('Estimate', colnames(z))]))),
+    S_chao1_bc   = c(
+      chao_total_sp_df[
+        grep('Chao1-bc', rownames(chao_total_sp_df)),
+        grep('Estimate', colnames(chao_total_sp_df))],
+      as.vector(sapply(chao_sel_sp_df, function(z) z[
+        grep('Chao1-bc', rownames(z)),
+        grep('Estimate', colnames(z))]))),
+    S_ichao1   = c(
+      chao_total_sp_df[
+        grep('iChao1 \\(Chiu et al. 2014\\)', rownames(chao_total_sp_df)),
+        grep('Estimate', colnames(chao_total_sp_df))],
+      as.vector(sapply(chao_sel_sp_df, function(z) z[
+        grep('iChao1 \\(Chiu et al. 2014\\)', rownames(z)),
+        grep('Estimate', colnames(z))])))
+  )
+  chao_df
+} else {
+  message("**Parte iNEXT/SpadeR omitida** (faltan paquetes 'iNEXT' y/o 'SpadeR' y/o 'ggplot2').\n",
+          "Aún puedes usar la tabla 'alpha_tab' con métricas alfa básicas (vegan).")
+}
+```
+
+Los gráficos y tablas a continuación muestran el detalle del resumen de estimación de riqueza anterior, pero parcela a parcela.
+
+```{r}
+# 4) Cargar funciones y usar 'estimacion_riqueza_chao'
+source('R/funciones.R')
+if (exists("estimacion_riqueza_chao") && ok_iNEXT && ok_SpadeR) {
+  res_est <- sapply(
+    names(ensamblajes) <- paste0("P", sel),
+    function(x)
+      estimacion_riqueza_chao(mc = colSums(BCI[as.numeric(gsub('P', '', x)), ])),
+    simplify = FALSE
+  )
+  # Gráfico iNEXT con paleta (devuelve ggplot2)
+  res_est
+} else {
+  message("Funciones cargadas pero faltan 'iNEXT'/'SpadeR', o no se encontró 'estimacion_riqueza_chao'.")
+}
+```
+
+## **Ideas de ayuda**
+
+0. **Compara** la **riqueza observada** (`S_obs`) con la **riqueza esperada** (`S_chao1`, `S_chao1_bc`, `S_ichao1`) y con las **curvas iNEXT**: ¿coinciden las tendencias? ¿qué tan lejos está la asintota de la muestra actual?
+
+1. **Interpreta**: explica la **forma** de las curvas (rarefacción vs extrapolación), la **cobertura de muestreo** implícita y el **signo/magnitud** de las diferencias entre `S_obs` y `S_chao1` en el conjunto total y en las parcelas seleccionadas.
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., *¿qué esfuerzo adicional de muestreo se requiere para alcanzar el 95% de la riqueza esperada?*; *¿qué parcelas muestran mayor submuestreo relativo y por qué?*).
+
+3. **Reflexiona** sobre **implicaciones ecológicas/biogeográficas** (p. ej., dominancia/raras, heterogeneidad espacial del ensamblaje) y, si aplica, de **conservación** (p. ej., priorización de parcelas con alta riqueza estimada no muestreada, planificación de esfuerzo).
+
+---
+
+# Ejercicio 17 · SDM (Modelos de Distribución de Especies) — *introducción compacta*
+
+**Objetivo.** Construir un **SDM simple** con regresión logística (presencia/ausencia) y variables ambientales para generar un **mapa de idoneidad**. Alternativa ligera a MaxEnt/ML para aula.
+
+## Dataset y código de ayuda
+
+**Datos.** Usamos `meuse` (paquete `sp`) como “paisaje” con dos variables (zinc, cobre). Simulamos presencias de una “especie” asociada a bajo Zn (solo para el ejercicio), ajustamos un **GLM binomial** y proyectamos.
+
+```{r, results='asis'}
+if (requireNamespace("sp", quietly=TRUE) &&
+    requireNamespace("raster", quietly=TRUE) &&
+    requireNamespace("dismo", quietly=TRUE)) {
+
+  library(sp); library(raster); library(dismo)
+
+  data(meuse)                # datos puntuales con x, y y varias variables
+  coordinates(meuse) <- ~x+y # convertir a objeto espacial
+  meuse_df <- as.data.frame(meuse)
+
+  # 1) Simular presencia (1) si zinc está por debajo de la mediana (asociación negativa)
+  meuse_df$pres <- as.integer(meuse_df$zinc < median(meuse_df$zinc))
+
+  # 2) Preparar raster ambiental (interpolación rápida por IDW a fines docentes)
+  #    Creamos rejilla y hacemos IDW simple con 'dismo::interpolate' usando modelos de 'gstat'
+  #    Para brevedad, rasterizamos por kriging simple incorporado en 'dismo::gmap' no es necesario; usamos 'rasterFromXYZ'.
+  #    Aquí generamos una cuadrícula a partir de los puntos (resolución gruesa para rapidez):
+  rngx <- range(meuse_df$x); rngy <- range(meuse_df$y)
+  r <- raster(xmn=rngx[1], xmx=rngx[2], ymn=rngy[1], ymx=rngy[2], res=50)
+
+  # Rasterizar por promedio de celdas (simple y suficiente para demostración):
+  r_zinc  <- rasterize(meuse_df[,c("x","y")], r, meuse_df$zinc, fun=mean)
+  r_copper<- rasterize(meuse_df[,c("x","y")], r, meuse_df$copper, fun=mean)
+
+  env_stack <- stack(r_zinc, r_copper)
+  names(env_stack) <- c("zinc","copper")
+
+  # 3) Ajustar SDM (GLM binomial)
+  mod <- glm(pres ~ zinc + copper, data = meuse_df, family = binomial)
+  summ <- capture.output(summary(mod)); cat(paste(summ, collapse="\n"), "\n")
+
+  # 4) Predecir idoneidad (probabilidad de presencia)
+  pred <- predict(env_stack, mod, type="response")
+  plot(pred, main="SDM (GLM): Probabilidad de presencia")
+  points(meuse_df$x, meuse_df$y, pch=19,
+         col=ifelse(meuse_df$pres==1, "red", "blue"))
+  legend("topleft", legend=c("Presencia (simulada)","Ausencia"),
+         pch=19, col=c("red","blue"), bty="n")
+
+  # 5) Evaluación rápida (holdout simple 70/30):
+  set.seed(123)
+  idx <- sample.int(nrow(meuse_df), size = floor(0.7*nrow(meuse_df)))
+  fit <- glm(pres ~ zinc + copper, data = meuse_df[idx,], family=binomial)
+  prd <- predict(fit, newdata = meuse_df[-idx,], type="response")
+  lab <- meuse_df$pres[-idx]
+  # Curva ROC/AUC básica (dismo::evaluate)
+  ev  <- evaluate(p = prd[lab==1], a = prd[lab==0])
+  print(ev)
+  plot(ev, 'ROC', main = sprintf("ROC (AUC = %.3f)", as.numeric(ev@auc)))
+} else {
+  cat("**Paquetes espaciales no instalados ('sp','raster','dismo'): SDM omitido.**\n",
+      "Instale estos paquetes para ejecutar este ejercicio.\n")
+}
+```
+
+**Sugerencias de extensión (si hay tiempo/recursos).**
+
+* Probar términos no lineales (p. ej., `poly(zinc,2)`).
+* Comparar con un **modelo de fondo** (pseudo-ausencias) si solo se dispone de presencias.
+* Si cuentan con `maxent.jar`, explorar `dismo::maxent` con el mismo stack ambiental.
+
+## **Ideas de ayuda**
+
+1. **Interpreta** el mapa de idoneidad y los coeficientes del GLM (signo, magnitud, significancia).
+
+2. **Formula dos preguntas** que puedan responderse con estos resultados o con la técnica empleada (p. ej., ¿qué umbral usarías para convertir probabilidad en presencia?, ¿qué variable añadirías para mejorar el AUC?).
+
+3. **Reflexiona** sobre implicaciones **ecológicas/biogeográficas** (idoneidad, nicho, extrapolación) y **de conservación** (priorización espacial, muestreo dirigido, riesgos de sobreajuste).
+
+---
+
+
+```{r}
+sessionInfo()
+```

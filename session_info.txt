@@ -1,0 +1,32 @@
+R version 4.4.0 (2024-04-24)
+Platform: x86_64-pc-linux-gnu
+Running under: Ubuntu 22.04.4 LTS
+
+Matrix products: default
+BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
+LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.20.so;  LAPACK version 3.10.0
+
+locale:
+ [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       
+ [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   
+ [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          
+[10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   
+
+time zone: Etc/UTC
+tzcode source: system (glibc)
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] knitr_1.47     vegan_2.6-6.1  lattice_0.22-6 permute_0.9-7 
+
+loaded via a namespace (and not attached):
+ [1] nlme_3.1-165      cli_3.6.3         rlang_1.1.7       xfun_0.53        
+ [5] processx_3.8.5    promises_1.3.2    jsonlite_1.8.9    htmltools_0.5.8.1
+ [9] tinytex_0.51      ps_1.8.1          chromote_0.4.0    rmarkdown_2.27   
+[13] grid_4.4.0        evaluate_0.24.0   MASS_7.3-61       fastmap_1.2.0    
+[17] yaml_2.3.10       bookdown_0.39     cluster_2.1.6     compiler_4.4.0   
+[21] Rcpp_1.0.14       websocket_1.4.1   mgcv_1.9-1        rstudioapi_0.17.1
+[25] later_1.4.1       digest_0.6.37     R6_2.5.1          splines_4.4.0    
+[29] parallel_4.4.0    magrittr_2.0.3    Matrix_1.7-0      tools_4.4.0      

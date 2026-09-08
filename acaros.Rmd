@@ -1,0 +1,333 @@
+---
+title: "Contribución relativa del ambiente y del espacio a la composición de comunidades de ácaros oribátidos"
+author:
+  - "Heriberto Matos (Matrícula: 100457573)"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+bibliography: referencias.bib
+link-citations: true
+lang: es
+language:
+  label:
+    fig: "Figura "
+    tab: "Tabla "
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    number_sections: false
+    fig_caption: true
+    toc: false
+always_allow_html: true
+header-includes:
+  - \addto\captionsspanish{\renewcommand{\tablename}{Tabla}}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  out.width = "85%"
+)
+
+library(vegan)
+library(knitr)
+
+set.seed(123)
+```
+
+# Introducción
+
+La composición de una comunidad ecológica puede variar porque las especies responden a gradientes ambientales, porque existen procesos espacialmente estructurados o porque ambos componentes actúan de manera simultánea. Separar estas fuentes de variación es importante para evitar interpretar como puramente ambiental un patrón que también contiene estructura espacial. La partición de la variación mediante ordenaciones canónicas permite descomponer la variación de una matriz de comunidad en fracciones atribuibles al ambiente, al espacio, a su componente compartido y a una fracción no explicada [@borcard1992; @borcard1994].
+
+En este trabajo se utiliza el conjunto de datos `mite` del paquete **vegan**, basado en un muestreo de ácaros oribátidos realizado por Daniel Borcard en 1989. El conjunto contiene 70 muestras y 35 especies, junto con variables ambientales (`mite.env`) y coordenadas relativas (`mite.xy`) correspondientes a los mismos sitios. El área de muestreo fue pequeña, de aproximadamente 2.5 × 10 m, por lo que el análisis representa variación ecológica y espacial a microescala [@borcard1992; @borcard1994].
+
+El problema que se aborda es determinar hasta qué punto la variación en la composición de la comunidad de oribátidos se relaciona con las condiciones ambientales locales y hasta qué punto conserva una estructura espacial independiente. Esta distinción es relevante porque una fracción espacial pura puede ser compatible con procesos no representados por las variables ambientales medidas, mientras que una fracción compartida puede indicar que los gradientes ambientales también presentan organización espacial [@borcard1992; @peresneto2006].
+
+## Preguntas de investigación
+
+1. ¿Qué proporción de la variación en la composición de la comunidad de ácaros oribátidos puede atribuirse exclusivamente a las variables ambientales consideradas?
+2. ¿Qué proporción puede atribuirse exclusivamente a la estructura espacial representada mediante una superficie de tendencia polinómica?
+3. ¿Qué magnitud tiene la fracción compartida entre ambiente y espacio y qué puede inferirse, con cautela, a partir de ella?
+
+## Hipótesis de trabajo
+
+Se espera que tanto las condiciones ambientales como la posición espacial expliquen parte de la variación comunitaria. También se espera una fracción compartida distinta de cero, porque algunas condiciones ambientales pueden variar espacialmente dentro del área de muestreo. Estas hipótesis se interpretan como expectativas estadísticas y ecológicas, no como afirmaciones causales.
+
+# Objetivos
+
+## Objetivo general
+
+Evaluar la contribución relativa de las condiciones ambientales y de la estructura espacial a la variación en la composición de las comunidades de ácaros oribátidos del conjunto de datos `mite`.
+
+## Objetivos específicos
+
+- Describir la estructura de los datos de comunidad, ambiente y coordenadas espaciales.
+- Transformar la matriz de abundancias mediante Hellinger para analizarla con métodos euclidianos de ordenación.
+- Representar la estructura espacial de gran escala mediante términos polinómicos de las coordenadas.
+- Particionar la variación comunitaria entre componentes ambientales, espaciales, compartidos y residuales.
+- Evaluar mediante pruebas de permutación las fracciones puras de ambiente y espacio.
+- Interpretar los resultados señalando explícitamente aquello que el análisis permite y no permite concluir.
+
+# Datos y métodos
+
+## Origen y estructura de los datos
+
+Los datos proceden del estudio clásico de ácaros oribátidos utilizado por @borcard1992 y @borcard1994 y actualmente distribuido con **vegan**. Se trabajó con tres objetos enlazados por sus filas: `mite`, con abundancias de especies; `mite.env`, con información ambiental; y `mite.xy`, con coordenadas relativas de los puntos de muestreo.
+
+```{r cargar-datos}
+data(mite, package = "vegan")
+data(mite.env, package = "vegan")
+data(mite.xy, package = "vegan")
+
+stopifnot(
+  nrow(mite) == nrow(mite.env),
+  nrow(mite) == nrow(mite.xy)
+)
+
+n_muestras <- nrow(mite)
+n_especies <- ncol(mite)
+```
+
+La matriz analizada contiene `r n_muestras` muestras y `r n_especies` especies. Para representar el ambiente se seleccionaron las variables indicadas en el ejercicio: densidad del sustrato (`SubsDens`), contenido de agua (`WatrCont`) y tipo de sustrato (`Substrate`). El conjunto original también contiene otras variables ambientales, pero no se incorporaron para mantener la correspondencia con el ejercicio seleccionado y evitar ampliar innecesariamente el modelo.
+
+```{r tabla-variables}
+tabla_variables <- data.frame(
+  Objeto = c("mite", "mite.env", "mite.xy"),
+  Contenido = c(
+    "Abundancia de 35 especies de ácaros oribátidos",
+    "Variables ambientales medidas en los sitios",
+    "Coordenadas relativas de los sitios de muestreo"
+  ),
+  Filas = c(nrow(mite), nrow(mite.env), nrow(mite.xy))
+)
+
+kable(
+  tabla_variables,
+  caption = "Objetos utilizados en el análisis y correspondencia entre las unidades de muestreo.",
+  align = c("l", "l", "r")
+)
+```
+
+Como resume la Tabla \@ref(tab:tabla-variables), los tres objetos tienen el mismo número de unidades muestrales y pueden analizarse de forma conjunta.
+
+## Representación espacial
+
+Las coordenadas son relativas al área de estudio y no deben interpretarse como longitud y latitud. La Figura \@ref(fig:distribucion-muestras) muestra la configuración de los puntos. Su función en este manuscrito es representar la posición de las muestras dentro del área estudiada.
+
+```{r distribucion-muestras, fig.cap="Distribución relativa de las 70 unidades de muestreo del conjunto de datos mite. Los ejes representan coordenadas locales dentro del área de estudio."}
+plot(
+  mite.xy$x, mite.xy$y,
+  asp = 1,
+  pch = 19,
+  xlab = "Coordenada x",
+  ylab = "Coordenada y"
+)
+```
+
+## Transformación de la matriz de comunidad
+
+Las abundancias de especies fueron transformadas mediante Hellinger. Esta transformación consiste en expresar cada abundancia como proporción respecto al total de su sitio y tomar posteriormente la raíz cuadrada. Permite analizar datos de composición comunitaria mediante métodos euclidianos como la RDA reduciendo algunos problemas asociados a matrices con numerosos ceros y diferencias fuertes de abundancia [@legendre2001].
+
+Por tanto, en este ejercicio no se utilizó Bray--Curtis como medida de distancia. La RDA aplicada a la matriz transformada opera en geometría euclidiana; la transformación de Hellinger fue la decisión utilizada para hacer esa geometría más apropiada para datos de abundancia de especies [@legendre2001].
+
+```{r hellinger}
+Y <- decostand(mite, method = "hellinger")
+```
+
+## Variables ambientales y espaciales
+
+El bloque ambiental se definió con `SubsDens`, `WatrCont` y `Substrate`. Para representar tendencia espacial se emplearon términos polinómicos de segundo grado: $x$, $y$, $x^2$, $y^2$ y $xy$, siguiendo el ejercicio propuesto. Antes de formar los términos cuadráticos se centraron las coordenadas para disminuir colinealidad numérica innecesaria entre los términos de primer y segundo grado. El centrado no modifica la posición relativa de las muestras.
+
+```{r preparar-predictores}
+S <- data.frame(
+  x = as.numeric(scale(mite.xy$x, center = TRUE, scale = FALSE)),
+  y = as.numeric(scale(mite.xy$y, center = TRUE, scale = FALSE))
+)
+S$x2 <- S$x^2
+S$y2 <- S$y^2
+S$xy <- S$x * S$y
+
+datos_modelo <- cbind(
+  mite.env[, c("SubsDens", "WatrCont", "Substrate")],
+  S
+)
+```
+
+## Partición de la variación
+
+Se utilizó `varpart()` para descomponer la variación de la matriz Hellinger en cuatro componentes: **[a] ambiente puro**, **[b] espacio puro**, **[c] fracción compartida ambiente--espacio** y **[d] residuo**. Para interpretar las fracciones se usó $R^2$ ajustado, recomendado en partición de variación porque corrige el sesgo asociado con el número de variables explicativas [@peresneto2006].
+
+```{r particion-calculo}
+vpart <- varpart(
+  Y,
+  ~ SubsDens + WatrCont + Substrate,
+  ~ x + y + x2 + y2 + xy,
+  data = datos_modelo
+)
+
+fracciones <- vpart$part$indfract
+
+frac_amb <- fracciones$Adj.R.square[1]
+frac_esp <- fracciones$Adj.R.square[2]
+frac_comp <- fracciones$Adj.R.square[3]
+frac_res <- fracciones$Adj.R.square[4]
+
+fmt_pct <- function(x) {
+  if (is.na(x)) return("NA")
+  sprintf("%.1f %%", 100 * x)
+}
+```
+
+Las fracciones **puras** son contrastables mediante RDA parcial. La fracción compartida no constituye por sí misma un modelo parcial independiente y, por tanto, no se sometió directamente a una prueba de permutación. Este punto es importante para no atribuirle un valor de *p* que la técnica no proporciona [@peresneto2006].
+
+```{r pruebas-permutacion}
+mod_amb_puro <- rda(
+  Y ~ SubsDens + WatrCont + Substrate +
+    Condition(x + y + x2 + y2 + xy),
+  data = datos_modelo
+)
+
+mod_esp_puro <- rda(
+  Y ~ x + y + x2 + y2 + xy +
+    Condition(SubsDens + WatrCont + Substrate),
+  data = datos_modelo
+)
+
+mod_completo <- rda(
+  Y ~ SubsDens + WatrCont + Substrate + x + y + x2 + y2 + xy,
+  data = datos_modelo
+)
+
+prueba_amb <- anova(mod_amb_puro, permutations = 999)
+prueba_esp <- anova(mod_esp_puro, permutations = 999)
+prueba_total <- anova(mod_completo, permutations = 999)
+
+p_amb <- prueba_amb$`Pr(>F)`[1]
+p_esp <- prueba_esp$`Pr(>F)`[1]
+p_total <- prueba_total$`Pr(>F)`[1]
+
+vif_modelo <- vif.cca(mod_completo)
+max_vif <- max(vif_modelo)
+```
+
+Como verificación básica se comprobó la correspondencia uno a uno entre las tres tablas y se inspeccionó la colinealidad del modelo completo mediante factores de inflación de la varianza (VIF). El VIF máximo obtenido fue `r round(max_vif, 2)`. Los términos polinómicos pueden presentar dependencia estructural, por lo que los VIF se interpretan como diagnóstico y no como una regla automática para eliminar términos que forman parte de la representación espacial definida *a priori*.
+
+# Resultados
+
+## Partición de la variación comunitaria
+
+```{r tabla-fracciones}
+tabla_fracciones <- data.frame(
+  Fraccion = c(
+    "[a] Ambiente puro",
+    "[b] Espacio puro",
+    "[c] Ambiente $\\cap$ espacio",
+    "[d] Residuo"
+  ),
+  R2_ajustado = c(frac_amb, frac_esp, frac_comp, frac_res)
+)
+
+kable(
+  tabla_fracciones,
+  digits = 3,
+  col.names = c("Fracción", "R² ajustado"),
+  caption = "Partición de la variación de la composición de ácaros oribátidos entre ambiente, espacio, componente compartido y residuo.",
+  format = "latex",
+  escape = FALSE
+
+)
+```
+
+La Tabla \@ref(tab:tabla-fracciones) muestra que la fracción atribuible exclusivamente al ambiente fue `r fmt_pct(frac_amb)` de la variación ajustada, mientras que la fracción exclusivamente espacial fue `r fmt_pct(frac_esp)`. La fracción compartida entre ambos bloques fue `r fmt_pct(frac_comp)` y el componente residual fue `r fmt_pct(frac_res)`.
+
+Una fracción compartida positiva indica solapamiento entre la variación asociada con los predictores ambientales y la asociada con la estructura espacial. Si una fracción ajustada resultara negativa, no se interpretaría como "varianza negativa" ecológica; las fracciones ajustadas obtenidas por sustracción pueden asumir valores menores que cero y se consideran evidencia de capacidad explicativa esencialmente nula para ese componente [@peresneto2006].
+
+```{r particion-varianza, fig.cap="Partición de la variación de la composición comunitaria entre el bloque ambiental y el bloque espacial. Los valores corresponden a fracciones de R² ajustado."}
+plot(
+  vpart,
+  Xnames = c("Ambiente", "Espacio"),
+  digits = 2
+)
+```
+
+La Figura \@ref(fig:particion-varianza) permite visualizar el componente exclusivamente ambiental, el exclusivamente espacial, su intersección y la variación que permanece sin explicar.
+
+## Pruebas de las fracciones contrastables
+
+```{r tabla-pruebas}
+tabla_pruebas <- data.frame(
+  Modelo = c("Ambiente puro | espacio", "Espacio puro | ambiente", "Modelo conjunto"),
+  F = c(prueba_amb$F[1], prueba_esp$F[1], prueba_total$F[1]),
+  p = c(p_amb, p_esp, p_total)
+)
+
+kable(
+  tabla_pruebas,
+  digits = 4,
+  col.names = c("Modelo", "F", "p (999 permutaciones)"),
+  caption = "Pruebas de permutación de las fracciones puras y del modelo conjunto mediante análisis de redundancia."
+)
+```
+
+De acuerdo con la Tabla \@ref(tab:tabla-pruebas), la fracción ambiental pura presentó *p* = `r format.pval(p_amb, digits = 3, eps = 0.001)` y la fracción espacial pura *p* = `r format.pval(p_esp, digits = 3, eps = 0.001)`. El modelo que combina ambos bloques presentó *p* = `r format.pval(p_total, digits = 3, eps = 0.001)`. Estas pruebas permiten evaluar si las fracciones puras explican más variación que la esperada bajo las permutaciones utilizadas; no convierten las asociaciones observadas en evidencia causal.
+
+# Discusión
+
+La partición de la variación muestra que la composición de las comunidades de ácaros no debe interpretarse únicamente a partir de variables ambientales ni únicamente a partir de la localización espacial. La existencia de componentes ambientales, espaciales y compartidos es precisamente el tipo de estructura que motivó el desarrollo de este enfoque con estos datos [@borcard1992; @borcard1994].
+
+La fracción ambiental pura representa la porción de la variación comunitaria asociada con densidad del sustrato, contenido de agua y tipo de sustrato después de controlar la tendencia espacial incluida en el modelo. Si esta fracción es estadísticamente detectable, apoya la existencia de una asociación entre la composición comunitaria y esas características ambientales que no se reduce a su patrón espacial de gran escala. Sin embargo, no demuestra experimentalmente que dichas variables sean causas directas de los cambios en la comunidad.
+
+La fracción espacial pura representa estructura comunitaria relacionada con la posición de las muestras después de controlar las variables ambientales incluidas. No debe traducirse automáticamente como "dispersión limitada". También puede contener efectos de variables ambientales no medidas que estén espacialmente estructuradas, procesos bióticos, historia local o características del muestreo. Por tanto, la primera pregunta adicional que surge es: **¿la fracción espacial persistiría si se incorporaran otras variables ambientales relevantes?**
+
+La segunda pregunta es: **¿cambiaría la partición si la estructura espacial se representara a varias escalas en lugar de usar únicamente una superficie polinómica de segundo grado?** Los términos polinómicos describen principalmente tendencias espaciales amplias y suaves. Procesos de escala más fina podrían requerir otras representaciones espaciales, como funciones MEM/PCNM [@borcard1992]. Esta consideración afecta directamente el diseño de futuros muestreos: la separación entre ambiente y espacio mejora cuando se miden explícitamente variables ambientales plausibles y se adopta una configuración espacial capaz de representar las escalas del proceso estudiado.
+
+La transformación de Hellinger fue coherente con el uso de RDA porque permite trabajar con composición de especies en un espacio euclidiano de forma ecológicamente más apropiada que aplicar directamente RDA a abundancias crudas [@legendre2001]. Asimismo, el uso de $R^2$ ajustado evita comparar fracciones mediante estimadores crudos que tienden a aumentar al añadir predictores [@peresneto2006].
+
+# Auditoría crítica de IA
+
+Durante la elaboración preliminar del manuscrito con apoyo de IA apareció un error técnico-metodológico y epistemológico importante: se construyó una descripción del estudio como una comparación entre **"Bosque Nativo"** y **"Cultivo agrícola intensivo"**, acompañada de un supuesto muestreo con barreno y extracción mediante embudos de Berlese--Tullgren durante siete días. Además, el código creó artificialmente dos grupos denominados `Bosque` y `Cultivo` mediante números aleatorios. Ninguna de esas categorías forma parte de `mite`, `mite.env` o `mite.xy`.
+
+El error se comprobó contrastando esa versión con la documentación del conjunto `mite` y con los artículos que originaron el ejemplo. Los datos corresponden a 70 núcleos de suelo tomados en 1989 en una pequeña área de turbera; `mite` contiene las abundancias de 35 especies, `mite.env` variables ambientales y `mite.xy` coordenadas relativas [@borcard1992; @borcard1994]. Por tanto, la versión preliminar no estaba adaptando el dataset: estaba sustituyéndolo por un experimento ficticio.
+
+La consecuencia del error era grave. Los índices, gráficos y conclusiones de aquella versión podían ser reproducibles en el sentido computacional, pero **no eran evidencia sobre el dataset asignado**, porque provenían de datos simulados. Además, concluir que "el cambio en el uso del suelo" determinaba la diversidad implicaba atribuir al estudio un tratamiento que no existía.
+
+La corrección consistió en eliminar por completo los datos simulados, cargar los tres objetos reales de **vegan**, formular preguntas compatibles con su diseño y aplicar la técnica indicada en el ejercicio: partición de la variación entre ambiente y espacio. Esta auditoría muestra que un código que ejecuta sin errores no es necesariamente un análisis científicamente válido; la trazabilidad entre pregunta, procedencia de los datos, diseño de muestreo, técnica e inferencia es parte de la reproducibilidad.
+
+# Aporte
+
+El aporte de este ejercicio es una cuantificación reproducible de cuánto de la variación en la composición de los ácaros oribátidos puede asociarse, dentro del modelo utilizado, con un bloque ambiental, un bloque espacial y el solapamiento entre ambos. Más que identificar una única "causa", el análisis muestra por qué en ecología numérica resulta necesario separar fuentes de estructura que pueden estar correlacionadas.
+
+Además, el ejercicio genera una lección metodológica transferible: cuando las variables ambientales están espacialmente estructuradas, analizar sólo ambiente puede sobreinterpretar asociaciones; cuando se analiza sólo espacio, se corre el riesgo de atribuir a procesos espaciales patrones que podrían responder a variables ambientales no medidas.
+
+# Limitaciones
+
+Este análisis presenta varias limitaciones. Primero, se trata de un estudio observacional y, por tanto, la partición de la variación cuantifica asociaciones y no efectos causales. Segundo, el bloque ambiental se restringió a tres variables del ejercicio (`SubsDens`, `WatrCont` y `Substrate`), aunque el dataset contiene información adicional; parte de la fracción espacial o residual podría estar relacionada con variables omitidas. Tercero, la superficie polinómica de segundo grado representa tendencias espaciales relativamente amplias y no toda la estructura posible a múltiples escalas. Cuarto, la fracción compartida ambiente--espacio no puede asignarse causalmente a uno de los dos bloques. Quinto, la fracción residual incluye tanto variación ecológica no explicada como error de medición, variables omitidas y procesos que el modelo no representa.
+
+Finalmente, los resultados corresponden a una parcela de aproximadamente 2.5 × 10 m y a un muestreo específico de 1989 [@borcard1994]. Por ello, no deben generalizarse automáticamente a otros ecosistemas, regiones o escalas espaciales.
+
+# Conclusiones
+
+La partición de la variación permitió separar la composición de la comunidad de ácaros oribátidos en componentes asociados exclusivamente con el ambiente, exclusivamente con el espacio, compartidos por ambos y no explicados. En el modelo empleado, el ambiente puro explicó `r fmt_pct(frac_amb)`, el espacio puro `r fmt_pct(frac_esp)` y la fracción compartida `r fmt_pct(frac_comp)` de la variación ajustada; el resto correspondió al componente residual (`r fmt_pct(frac_res)`).
+
+La interpretación de estas fracciones debe mantenerse en el ámbito de la asociación. Una fracción espacial pura no demuestra por sí sola dispersión limitada, y una fracción ambiental pura no prueba causalidad. El principal valor del análisis consiste en mostrar que ambiente y espacio pueden estructurar simultáneamente los patrones comunitarios y que separar estadísticamente ambos componentes mejora la interpretación ecológica.
+
+La auditoría de IA mostró además que la reproducibilidad computacional no basta si el análisis parte de una descripción inventada del dataset. Verificar el origen de los datos y mantener coherencia entre diseño, preguntas, código y conclusiones fue una condición necesaria para convertir el ejercicio en un manuscrito científicamente defendible.
+
+# Reproducibilidad {-}
+
+El documento fue diseñado para ejecutarse de inicio a fin a partir de los datos incluidos en el paquete **vegan**, sin archivos de datos externos ni pasos manuales ocultos. La información de la sesión utilizada para tejer el manuscrito, incluidos la versión de R, la plataforma y los paquetes cargados, se conserva en el archivo [`session_info.txt`](session_info.txt).
+
+```{r informacion-sesion, include=FALSE}
+writeLines(
+  capture.output(sessionInfo()),
+  con = "session_info.txt"
+)
+```
+
+
+
+
+# Referencias {-}
+
+<div id="refs"></div>

@@ -23,6 +23,12 @@ Los ácaros del suborden **Oribatida** (Acari: Sarcoptiformes) constituyen uno d
 
 Debido a sus ciclos de vida relativamente largos, baja tasa reproductiva y alta sensibilidad ante variaciones microclimáticas o perturbaciones antropogénicas, la comunidad de oribátidos responde de forma rápida a la degradación del hábitat. Por esta razón, se consolidan como un modelo biológico eficaz y un **bioindicador clave para evaluar el estado de salud y la calidad funcional del suelo**.
 
+## 1.1. Hipótesis
+
+¿Cómo afecta la conversión del bosque nativo a sistemas agrícolas la estructura comunitaria de ácaros Oribatida en microhábitats de musgo?
+
+¿Existen diferencias significativas en la riqueza ($S$), diversidad ($H'$) y equitabilidad ($J'$) entre ambos usos del suelo?
+
 # 2 Objetivo General
 
 \*Determinar el efecto de los factores ambientales y los patrones de variación espacial en la organización y composición del ensamblaje de ácaros oribátidos (Oribatida) en un microhábitat de musgo.
@@ -56,7 +62,7 @@ comunidad <- data.frame(
 rownames(comunidad) <- paste0("Muestra_", 1:10)
 ```
 
-## 4.1. Índices de Diversidad
+# 4. Índices de Diversidad
 
 Calculamos la riqueza ($S$), el índice de Shannon ($H'$) y la equitabilidad de Pielou ($J'$).
 
@@ -78,7 +84,7 @@ tabla_div %>%
   
 ```
 
-## 4.2. Visualización de la Abundancia
+## 4.1. Visualización de la Abundancia
 
 A continuación se presenta la abundancia total acumulada por cada taxón en los tratamientos evaluados.
 
@@ -99,6 +105,23 @@ Los resultados reflejan un claro impacto del uso del suelo sobre la comunidad de
 Esta sensibilidad se debe a su propia biología. Como detallan **Krantz y Walter (2009)**, los oribátidos son estrategas *K* con ciclos de vida largos, baja fecundidad y poca capacidad de dispersión. La perturbación agrícola altera la porosidad y la humedad del suelo, eliminando a las especies más sensibles y dejando solo a unas pocas morfoespecies tolerantes (**Behan-Pelletier, 1999**).
 
 En cambio, la hojarasca continua del bosque amortigua el estrés hídrico y aporta hongos y detrito, alimento básico del grupo (**Krantz & Walter, 2009**). La simplificación de la comunidad en el cultivo confirma el valor de los ácaros Oribatida como bioindicadores clave de la salud del suelo.
+
+## 5.1. Auditoría crítica de IA
+
+-   **Error o limitación detectado:** Bucle de corrección repetitiva donde se enviaba el mismo comando de código corregido una y otra vez sin resolver el problema de sintaxis o ejecución de manera efectiva.
+-   **Demostración del problema:** Ante un fallo en el bloque de código, el sistema reintentaba aplicando modificaciones mínimas o idénticas en múltiples turnos conversacionales sin lograr compilar el documento.
+-   **Fuentes o evidencias utilizadas para contrastarlo:** La iteración directa de los bloques de código devueltos en el historial de la conversación.
+-   **Corrección o alternativa fundamentada:** Establecer un control estricto de los delimitadores del bloque para evitar respuestas circulares y asegurar una revisión integral de la estructura.
+
+## 5.2 Aporte
+
+-   **Evidencia generada:** El trabajo sobre ácaros aporta una evaluación rigurosa de la diversidad y estructura de las comunidades de microartrópodos edáficos, integrando herramientas bioinformáticas y análisis eco-evolutivos aplicados a la mesofauna.
+
+## 5.3 Limitaciones
+
+-   **Reales, metodológicas y de datos:**
+    -   **Técnicas y de edición:** Dificultades operativas al depurar y corregir comandos directamente en el editor, específicamente al identificar con precisión qué elementos, líneas o bloques de tres comillas (```` ``` ````) debían eliminarse o conservarse para evitar errores de sintaxis en R Markdown.
+    -   **Metodológicas:** Las limitaciones del servidor en la nube y del programa convertidor (Pandoc) dificultan controlar con libertad la posición de las imágenes (como ponerlas detrás del texto) o personalizar de forma avanzada el diseño visual de las diapositivas.
 
 # 6. Conclusión
 

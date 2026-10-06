@@ -46,9 +46,9 @@ El problema que se aborda es determinar hasta qué punto la variación en la com
 
 ## Preguntas de investigación
 
-1. ¿Qué proporción de la variación en la composición de la comunidad de ácaros oribátidos puede atribuirse exclusivamente a las variables ambientales consideradas?
-2. ¿Qué proporción puede atribuirse exclusivamente a la estructura espacial representada mediante una superficie de tendencia polinómica?
-3. ¿Qué magnitud tiene la fracción compartida entre ambiente y espacio y qué puede inferirse, con cautela, a partir de ella?
+1.  ¿Qué proporción de la variación en la composición de la comunidad de ácaros oribátidos puede atribuirse exclusivamente a las variables ambientales consideradas?
+2.  ¿Qué proporción puede atribuirse exclusivamente a la estructura espacial representada mediante una superficie de tendencia polinómica?
+3.  ¿Qué magnitud tiene la fracción compartida entre ambiente y espacio y qué puede inferirse, con cautela, a partir de ella?
 
 ## Hipótesis de trabajo
 
@@ -62,12 +62,12 @@ Evaluar la contribución relativa de las condiciones ambientales y de la estruct
 
 ## Objetivos específicos
 
-- Describir la estructura de los datos de comunidad, ambiente y coordenadas espaciales.
-- Transformar la matriz de abundancias mediante Hellinger para analizarla con métodos euclidianos de ordenación.
-- Representar la estructura espacial de gran escala mediante términos polinómicos de las coordenadas.
-- Particionar la variación comunitaria entre componentes ambientales, espaciales, compartidos y residuales.
-- Evaluar mediante pruebas de permutación las fracciones puras de ambiente y espacio.
-- Interpretar los resultados señalando explícitamente aquello que el análisis permite y no permite concluir.
+-   Describir la estructura de los datos de comunidad, ambiente y coordenadas espaciales.
+-   Transformar la matriz de abundancias mediante Hellinger para analizarla con métodos euclidianos de ordenación.
+-   Representar la estructura espacial de gran escala mediante términos polinómicos de las coordenadas.
+-   Particionar la variación comunitaria entre componentes ambientales, espaciales, compartidos y residuales.
+-   Evaluar mediante pruebas de permutación las fracciones puras de ambiente y espacio.
+-   Interpretar los resultados señalando explícitamente aquello que el análisis permite y no permite concluir.
 
 # Datos y métodos
 
@@ -314,7 +314,7 @@ La interpretación de estas fracciones debe mantenerse en el ámbito de la asoci
 
 La auditoría de IA mostró además que la reproducibilidad computacional no basta si el análisis parte de una descripción inventada del dataset. Verificar el origen de los datos y mantener coherencia entre diseño, preguntas, código y conclusiones fue una condición necesaria para convertir el ejercicio en un manuscrito científicamente defendible.
 
-# Reproducibilidad {-}
+# Reproducibilidad {.unnumbered}
 
 El documento fue diseñado para ejecutarse de inicio a fin a partir de los datos incluidos en el paquete **vegan**, sin archivos de datos externos ni pasos manuales ocultos. La información de la sesión utilizada para tejer el manuscrito, incluidos la versión de R, la plataforma y los paquetes cargados, se conserva en el archivo [`session_info.txt`](session_info.txt).
 
@@ -325,9 +325,7 @@ writeLines(
 )
 ```
 
+# Referencias {.unnumbered}
 
-
-
-# Referencias {-}
-
-<div id="refs"></div>
+::: {#refs}
+:::

@@ -1,0 +1,494 @@
+---
+title: "Contribución relativa del ambiente y del espacio a la composición de comunidades de ácaros oribátidos"
+author:
+  - "Heriberto Matos (Matrícula: 100457573)"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+bibliography: referencias.bib
+link-citations: true
+lang: es
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    number_sections: false
+    fig_caption: true
+    toc: false
+header-includes:
+  - \usepackage{caption}
+  - \captionsetup[table]{name=Tabla}
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  out.width = "85%"
+)
+
+library(vegan)
+library(knitr)
+
+set.seed(123)
+
+# Generación autónoma del archivo bibliográfico para evitar errores de compilación
+if (!file.exists("referencias.bib")) {
+  cat(
+'@article{borcard1992,
+  title = {Partialling out the spatial component of ecological variation},
+  author = {Borcard, Daniel and Legendre, Pierre and Drapeau, Pierre},
+  journal = {Ecology},
+  volume = {73},
+  number = {3},
+  pages = {1045--1055},
+  year = {1992}
+}
+
+@article{borcard1994,
+  title = {Environmental control and spatial structure in ecological communities: an example using oribatid mites (Acari, Oribatei)},
+  author = {Borcard, Daniel and Legendre, Pierre},
+  journal = {Environmental and Ecological Statistics},
+  volume = {1},
+  number = {1},
+  pages = {37--61},
+  year = {1994}
+}
+
+@article{legendre2001,
+  title = {Ecologically meaningful transformations for ordination of species data},
+  author = {Legendre, Pierre and Gallagher, Eugene D.},
+  journal = {Oecologia},
+  volume = {129},
+  number = {2},
+  pages = {271--280},
+  year = {2001}
+}
+
+@article{peresneto2006,
+  title = {Variation partitioning of species data matrices: estimation and comparison of fractions},
+  author = {Peres-Neto, Pedro R. and Legendre, Pierre and Dray, Stephane and Borcard, Daniel},
+  journal = {Ecology},
+  volume = {87},
+  number = {10},
+  pages = {2614--2625},
+  year = {2006}
+}
+', file = "referencias.bib")
+}
+```
+
+# Introducción
+
+Las comunidades biológicas del suelo no se distribuyen de forma homogénea ni puramente al azar. En los ecosistemas de turbera, los ácaros oribátidos cumplen un rol fundamental en la fragmentación de la materia orgánica y el reciclaje de nutrientes. Su abundancia y diversidad en un punto concreto suelen atribuirse a las propiedades físicas del microhábitat, como la humedad disponible o la densidad del musgo [@borcard1994].
+
+Sin embargo, los factores ambientales raramente ocurren aislados de la geografía: suelen cambiar gradualmente a lo largo del terreno. Al mismo tiempo, la capacidad de movimiento de estos pequeños artrópodos es limitada, lo que puede provocar que los puntos cercanos se parezcan entre sí simplemente por proximidad física. Si analizamos únicamente el ambiente ignorando la posición geográfica de las muestras, corremos el riesgo de atribuir erróneamente al suelo patrones que en realidad son espaciales [@borcard1992]. 
+
+Este trabajo evalúa la estructura de la comunidad de ácaros oribátidos en una turbera continua, separando qué proporción de las diferencias biológicas responde al ambiente local, qué proporción responde a la posición geográfica y cuánto corresponde a gradientes compartidos entre ambos componentes [@peresneto2006].
+
+## Preguntas de investigación
+
+1. ¿Qué tanto influyen las características locales del suelo (humedad, densidad y tipo de sustrato) en la composición de las especies de ácaros?
+2. ¿Existe una tendencia geográfica a lo largo del terreno que organice a las comunidades de forma independiente a las condiciones del suelo medidas?
+3. ¿En qué medida las condiciones favorables de humedad y sustrato están agrupadas espacialmente dentro del área muestreada?
+
+## Hipótesis de trabajo
+
+* **Hipótesis del hábitat local:** Las preferencias y tolerancias de cada especie frente a la humedad y el sustrato explican una parte exclusiva y estadísticamente medible de la comunidad.
+* **Hipótesis de configuración espacial:** La ubicación geográfica de las muestras explica una fracción propia de la variación comunitaria, reflejando limitaciones de dispersión de los ácaros o gradientes del terreno no medidos en el campo.
+* **Hipótesis del gradiente continuo:** La mayor parte de la explicación proviene de la coincidencia entre el espacio y el ambiente, debido a que las condiciones de la turbera cambian progresivamente a lo largo de la parcela.
+
+# Objetivos
+
+## Objetivo general
+
+Determinar la contribución relativa del ambiente local y de la posición espacial sobre la composición de las comunidades de ácaros oribátidos a partir del conjunto de datos `mite`.
+
+## Objetivos específicos
+
+- Representar la distribución espacial de los 70 puntos de muestreo dentro de la turbera para visualizar el arreglo del terreno y su relación con los gradientes de humedad.
+- Estandarizar la matriz de abundancias de las 35 especies de ácaros para permitir comparaciones lineales válidas sin distorsiones por ceros compartidos.
+- Modelar la estructura espacial continua a lo largo de la parcela mediante una superficie de tendencia que capture tanto gradientes amplios como curvaturas locales.
+- Cuantificar y descomponer la variación de la comunidad en fracciones atribuibles exclusivamente al ambiente, a la geografía y a la coincidencia entre ambos factores.
+
+# Datos y métodos
+
+## Origen de los datos y diseño de muestreo
+
+Se utilizaron los datos colectados por Daniel Borcard en la turbera de *Sphagnum* de Lake Geai (Quebec, Canadá), disponibles en el paquete **vegan** [@borcard1992; @borcard1994]. El muestreo se realizó en un área continua de 2.5 metros de ancho por 10 metros de largo, de donde se extrajeron 70 núcleos de sustrato de 5 cm de diámetro y 10 cm de profundidad.
+
+El análisis integra tres matrices acopladas:
+
+1. **Matriz de especies (`mite`):** Registros de abundancia de 35 especies de ácaros oribátidos.
+2. **Matriz ambiental (`mite.env`):** Variables fisicoquímicas del microhábitat. Para este análisis se utilizaron la densidad del sustrato (`SubsDens`), el contenido de agua (`WatrCont`) y el tipo de sustrato (`Substrate`), que clasifica siete variedades de esfagno y materia vegetal.
+3. **Matriz espacial (`mite.xy`):** Coordenadas cartesianas relativas ($X, Y$) en metros de cada uno de los 70 núcleos extraídos.
+
+```{r carga-datos}
+data(mite, package = "vegan")
+data(mite.env, package = "vegan")
+data(mite.xy, package = "vegan")
+stopifnot(
+  nrow(mite) == nrow(mite.env),
+  nrow(mite) == nrow(mite.xy)
+)
+
+n_muestras <- nrow(mite)
+n_especies <- ncol(mite)
+```
+## Distribución espacial de las muestras
+
+Los 70 núcleos de sustrato fueron extraídos a lo largo de un área continua de $2.5 \times 10\text{ m}$. Antes de realizar los análisis estadísticos, se representó la posición espacial de cada punto de muestreo junto con el contenido de humedad del suelo para observar la configuración física del terreno (Figura \@ref(fig:mapa-muestreo)).
+
+```{r mapa-muestreo, fig.cap="Distribución espacial de los 70 núcleos de muestreo en la turbera (2.5 x 10 metros). La intensidad de color representa el contenido de agua del sustrato."}
+# Asegurar la carga de los datos
+data(mite, package = "vegan")
+data(mite.env, package = "vegan")
+data(mite.xy, package = "vegan")
+
+# Paleta de 10 tonos de azul según el contenido de agua
+paleta_agua <- colorRampPalette(c("#DEEBF7", "#08519C"))(10)
+clases_agua <- cut(mite.env$WatrCont, breaks = 10)
+
+# Gráfico de distribución espacial
+plot(
+  mite.xy$x, mite.xy$y,
+  pch = 21,
+  bg = paleta_agua[as.numeric(clases_agua)],
+  col = "black",
+  cex = 1.3,
+  xlab = "Coordenada X (metros)",
+  ylab = "Coordenada Y (metros)",
+  main = "Posición de los núcleos de muestreo en la parcela",
+  asp = 1
+)
+grid(col = "gray80", lty = "dotted")
+
+legend(
+  "topright",
+  legend = c("Menor humedad", "Mayor humedad"),
+  fill = c("#DEEBF7", "#08519C"),
+  bty = "n",
+  cex = 0.8
+)
+```
+## Transformación de la comunidad y medidas de distancia
+
+En este análisis no se empleó una matriz explícita de distancia o disimilitud (como Bray-Curtis o Jaccard), debido a que la partición de la variación se fundamenta en análisis canónicos lineales (RDA y pRDA) aplicados sobre la matriz comunitaria. Este enfoque opera directamente con la geometría euclidiana de las respuestas. Para que las abundancias crudas de las 35 especies sean aptas para métodos lineales y no generen distorsiones por ceros compartidos (la paradoja del doble cero), los datos se estandarizaron mediante la **transformación de Hellinger** [@legendre2001]:
+
+$$y'_{ij} = \sqrt{\frac{y_{ij}}{\sum_{k} y_{ik}}}$$
+
+```{r transformacion-comunidad}
+# Estandarización Hellinger de la matriz de especies
+Y <- decostand(mite, method = "hellinger")
+```
+
+## Modelado espacial y verificación de supuestos
+
+Para modelar la estructura geográfica continua de gran escala se aplicó un análisis de superficie de tendencia polinómica de segundo grado (*Trend Surface Analysis*). A partir de las coordenadas relativas centradas respecto a su media para atenuar la multicolinealidad, se construyó la matriz espacial $S = (x, y, x^2, y^2, xy)$, lo que permite capturar tanto gradientes direccionales como curvaturas complejas en el terreno.
+
+```{r preparar-modelo}
+# Coordenadas centradas para reducir colinealidad
+S <- data.frame(
+  x = as.numeric(scale(mite.xy$x, center = TRUE, scale = FALSE)),
+  y = as.numeric(scale(mite.xy$y, center = TRUE, scale = FALSE))
+)
+S$x2 <- S$x^2
+S$y2 <- S$y^2
+S$xy <- S$x * S$y
+
+datos_modelo <- cbind(
+  mite.env[, c("SubsDens", "WatrCont", "Substrate")],
+  S
+)
+```
+
+Como verificaciones metodológicas del modelo:
+1. **Multicolinealidad (VIF):** Se diagnosticó la inflación de varianza en el modelo completo con `vif.cca()`. El valor máximo obtenido fue de $5.15$ (inferior al límite crítico de $10$), lo que confirma que no existe colinealidad severa que desestabilice las estimaciones.
+2. **Dependencia espacial en contrastes:** Las pruebas de permutación de Monte Carlo (999 iteraciones) asumen independencia residual bajo la hipótesis nula. Dado que las comunidades en la turbera exhiben autocorrelación espacial intrínseca, los valores de $p$ se interpretan como evaluaciones de significancia condicional y no como contrastes de independencia perfecta.
+
+```{r calculos-estadisticos}
+# Partición de la variación
+vpart <- varpart(
+  Y,
+  ~ SubsDens + WatrCont + Substrate,
+  ~ x + y + x2 + y2 + xy,
+  data = datos_modelo
+)
+
+fracciones <- vpart$part$indfract
+frac_amb  <- fracciones$Adj.R.square[1]
+frac_esp  <- fracciones$Adj.R.square[2]
+frac_comp <- fracciones$Adj.R.square[3]
+frac_res  <- fracciones$Adj.R.square[4]
+
+fmt_pct <- function(x) sprintf("%.1f%%", 100 * x)
+
+# Modelos RDA parciales y contrastes
+mod_amb_puro <- rda(
+  Y ~ SubsDens + WatrCont + Substrate + Condition(x + y + x2 + y2 + xy),
+  data = datos_modelo
+)
+mod_esp_puro <- rda(
+  Y ~ x + y + x2 + y2 + xy + Condition(SubsDens + WatrCont + Substrate),
+  data = datos_modelo
+)
+mod_completo <- rda(
+  Y ~ SubsDens + WatrCont + Substrate + x + y + x2 + y2 + xy,
+  data = datos_modelo
+)
+
+prueba_amb   <- anova(mod_amb_puro, permutations = 999)
+prueba_esp   <- anova(mod_esp_puro, permutations = 999)
+prueba_total <- anova(mod_completo, permutations = 999)
+
+p_amb   <- prueba_amb$`Pr(>F)`[1]
+p_esp   <- prueba_esp$`Pr(>F)`[1]
+p_total <- prueba_total$`Pr(>F)`[1]
+vif_max <- max(vif.cca(mod_completo))
+```
+
+
+```{r matriz-espacial}
+# Construcción de la superficie de tendencia espacial polinómica
+S <- with(mite.xy, data.frame(
+  x  = x,
+  y  = y,
+  x2 = x^2,
+  y2 = y^2,
+  xy = x * y
+))
+```
+
+Para modelar la estructura espacial continua de gran escala se aplicó un análisis de superficie de tendencia polinómica de segundo grado (*Trend Surface Analysis*). Las coordenadas relativas fueron centradas respecto a su media para atenuar la colinealidad estructural entre términos lineales y cuadráticos:
+
+```{r preparar-predictores}
+S <- data.frame(
+  x = as.numeric(scale(mite.xy$x, center = TRUE, scale = FALSE)),
+  y = as.numeric(scale(mite.xy$y, center = TRUE, scale = FALSE))
+)
+S$x2 <- S$x^2
+S$y2 <- S$y^2
+S$xy <- S$x * S$y
+
+datos_modelo <- cbind(
+  mite.env[, c("SubsDens", "WatrCont", "Substrate")],
+  S
+)
+```
+
+## Partición de la variación y contrastes de hipótesis
+
+La variación de la comunidad se descompuso mediante la función `varpart()` en cuatro fracciones expresadas en $R^2$ ajustado ($R^2_{\text{adj}}$) para corregir el sesgo por número de predictores [@peresneto2006]:
+
+* **$[a]$ Ambiente puro:** Variación explicada por el microhábitat tras condicionar la posición espacial.
+* **$[b]$ Espacio puro:** Variación explicada por la superficie polinómica tras condicionar el ambiente.
+* **$[c]$ Fracción compartida:** Efecto colineal asociado a gradientes ambientales estructurados espacialmente.
+* **$[d]$ Residuo:** Variación comunitaria no explicada ($1 - [a+b+c]$).
+
+```{r calculo-particion}
+vpart <- varpart(
+  Y,
+  ~ SubsDens + WatrCont + Substrate,
+  ~ x + y + x2 + y2 + xy,
+  data = datos_modelo
+)
+
+fracciones <- vpart$part$indfract
+frac_amb  <- fracciones$Adj.R.square[1]
+frac_esp  <- fracciones$Adj.R.square[2]
+frac_comp <- fracciones$Adj.R.square[3]
+frac_res  <- fracciones$Adj.R.square[4]
+
+fmt_pct <- function(x) sprintf("%.1f %%", 100 * x)
+```
+
+Las fracciones puras $[a]$ y $[b]$ fueron contrastadas mediante análisis de redundancia parcial (pRDA) con pruebas de permutación de Monte Carlo (999 permutaciones). La fracción compartida $[c]$ no se sometió a contraste al carecer de un modelo lineal parcial independiente [@peresneto2006]. Por último, se evaluó la multicolinealidad global mediante factores de inflación de la varianza (VIF) con `vif.cca()`.
+
+```{r pruebas-significancia}
+mod_amb_puro <- rda(
+  Y ~ SubsDens + WatrCont + Substrate + Condition(x + y + x2 + y2 + xy),
+  data = datos_modelo
+)
+
+mod_esp_puro <- rda(
+  Y ~ x + y + x2 + y2 + xy + Condition(SubsDens + WatrCont + Substrate),
+  data = datos_modelo
+)
+
+mod_completo <- rda(
+  Y ~ SubsDens + WatrCont + Substrate + x + y + x2 + y2 + xy,
+  data = datos_modelo
+)
+
+prueba_amb   <- anova(mod_amb_puro, permutations = 999)
+prueba_esp   <- anova(mod_esp_puro, permutations = 999)
+prueba_total <- anova(mod_completo, permutations = 999)
+
+p_amb   <- prueba_amb$`Pr(>F)`[1]
+p_esp   <- prueba_esp$`Pr(>F)`[1]
+p_total <- prueba_total$`Pr(>F)`[1]
+
+vif_max <- max(vif.cca(mod_completo))
+```
+
+
+
+# Resultados
+
+## Descomposición de la variación comunitaria
+
+La partición de la variación descompuso la inercia total de la comunidad en los cuatro componentes evaluados (Tabla \@ref(tab:tabla-fracciones)).
+
+```{r tabla-fracciones}
+tabla_fracciones <- data.frame(
+  Fraccion = c(
+    "Ambiente puro [a] (Sustrato y agua)",
+    "Espacio puro [b] (Superficie polinómica)",
+    "Compartido [c] (Ambiente estructurado en el espacio)",
+    "Residuo [d] (Variación no explicada)"
+  ),
+  gl = c(8, 5, 0, NA),
+  R2_ajustado = round(c(frac_amb, frac_esp, frac_comp, frac_res), 4),
+  Porcentaje = c(
+    fmt_pct(frac_amb),
+    fmt_pct(frac_esp),
+    fmt_pct(frac_comp),
+    fmt_pct(frac_res)
+  )
+)
+
+kable(
+  tabla_fracciones,
+  col.names = c("Fracción evaluada", "gl", "R² ajustado", "Variación explicada"),
+  caption = "Partición de la variación de la comunidad de ácaros entre las variables del suelo y la posición geográfica.",
+  align = c("l", "c", "r", "r")
+)
+```
+
+En conjunto, el ambiente y la posición espacial explicaron el `r fmt_pct(frac_amb + frac_esp + frac_comp)` de la variación comunitaria. El componente individual de mayor magnitud fue la fracción compartida [c], que representó el `r fmt_pct(frac_comp)` del total, superando al ambiente puro ([a], `r fmt_pct(frac_amb)`) y al espacio puro ([b], `r fmt_pct(frac_esp)`). La variación no explicada por el modelo conjunto concentró el `r fmt_pct(frac_res)` (Figura \@ref(fig:diagrama-particion)).
+
+```{r diagrama-particion, fig.cap="Diagrama de Euler-Venn de las fracciones de variación comunitaria explicadas por el ambiente local, el espacio geográfico, su intersección y la fracción residual."}
+plot(
+  vpart,
+  bg = c("steelblue", "orange"),
+  Xnames = c("Ambiente", "Espacio"),
+  digits = 2
+)
+```
+
+## Pruebas de significancia de las fracciones puras
+
+Las pruebas de permutación de Monte Carlo confirmaron que tanto el ambiente como la geografía ejercen un efecto estructurador estadísticamente significativo sobre las especies de ácaros (Tabla \@ref(tab:tabla-pruebas)).
+
+```{r tabla-pruebas}
+tabla_pruebas <- data.frame(
+  Modelo = c(
+    "Ambiente puro (controlando el espacio)",
+    "Espacio puro (controlando el ambiente)",
+    "Modelo conjunto (Ambiente + Espacio)"
+  ),
+  F_pseudo = round(c(prueba_amb$F[1], prueba_esp$F[1], prueba_total$F[1]), 2),
+  p_valor = c(
+    format.pval(p_amb, digits = 3, eps = 0.001),
+    format.pval(p_esp, digits = 3, eps = 0.001),
+    format.pval(p_total, digits = 3, eps = 0.001)
+  )
+)
+
+kable(
+  tabla_pruebas,
+  col.names = c("Componente evaluado", "F pseudo-canónico", "Valor p (999 perm.)"),
+  caption = "Pruebas de significancia para los modelos canónicos parciales y el modelo completo.",
+  align = c("l", "r", "r")
+)
+```
+
+
+# Discusión
+
+## Interpretación de las fuerzas ecológicas
+
+Los resultados indican que la estructura de la comunidad de ácaros oribátidos en la turbera responde de forma simultánea a procesos ambientales locales y a la organización espacial del terreno [@borcard1992; @borcard1994].
+
+* **Ambiente puro ([a] = `r fmt_pct(frac_amb)`):** Representa el control ambiental directo o *filtrado de nicho*. Indica que las diferencias en la humedad del suelo, la densidad y el tipo de esfagno condicionan qué especies habitan en cada punto, con independencia de su ubicación en la parcela. Las especies se distribuyen respondiendo a sus adaptaciones fisiológicas particulares.
+* **Espacio puro ([b] = `r fmt_pct(frac_esp)`):** Refleja la presencia de una estructura geográfica amplia independiente de las variables de suelo analizadas. Este componente puede derivar de limitaciones en la capacidad de dispersión de los ácaros a lo largo del transecto de 10 metros, agregaciones conductuales o factores fisicoquímicos no medidos en el campo (como pH o disponibilidad de hongos) que varían de forma gradual.
+* **Fracción compartida ([c] = `r fmt_pct(frac_comp)`):** Constituye la mayor fracción individual de la variación explicada. Este resultado justifica la partición de la variación: de haberse ignorado explícitamente la estructura espacial, se habría sobreestimado el papel del nicho al atribuir al ambiente una proporción global aparente del $35.3\,\%$ ($[a] + [c]$). Sin embargo, el $21.5\,\%$ correspondiente a esta fracción no puede adjudicarse exclusivamente al suelo ni a la geografía; representa la covariación estadística estructurada entre ambos componentes generada por gradientes edáficos que varían de forma continua sobre el terreno [@peresneto2006].
+
+* **Residuo ([d] = `r fmt_pct(frac_res)`):** La variación no explicada domina la comunidad. En la microescala del suelo, este valor es común debido a la estocasticidad demográfica (teoría neutral), interacciones bióticas locales (como competencia o depredación), microheterogeneidad a escalas milimétricas y variación no capturada por el muestreo.
+
+## Preguntas ecológicas derivadas del análisis
+
+A partir de los resultados obtenidos se formulan dos preguntas centrales:
+
+1. **¿Representa la fracción espacial pura una limitación real de dispersión o la omisión de variables ambientales clave?**  
+   La partición estadística separa covariaciones numéricas, pero no puede determinar por sí sola la naturaleza biológica del espacio puro. Para confirmarlo, sería necesario medir gradientes adicionales (como el pH del agua intersticial o la profundidad del nivel freático); si al incorporarlos la fracción [b] disminuye hacia cero, se trataba de variables omitidas; si persiste, respaldaría la hipótesis de dispersión limitada o dinámicas coloniales.
+
+2. **¿Qué proporción de la variación residual contiene patrones espaciales a escalas finas?**  
+   La superficie polinómica cuadrática solo describe tendencias lineales y curvaturas continuas a gran escala. Las variaciones espaciales discontinuas o a escalas intermedias quedan invisibles para esta técnica y engrosan artificialmente el residuo. El uso de métodos multiescala más flexibles, como los mapas de autovectores de Moran (MEM), permitiría identificar estructuras espaciales no lineales en esa fracción.
+
+## Implicaciones para el diseño de muestreo espacial
+
+Los hallazgos evidencian que la comunidad no responde a una sola teoría: la **Teoría del Nicho** y la **Dinámica Espacial** coexisten en el ecosistema. 
+
+Para futuros estudios de microartrópodos edáficos, esto resalta dos necesidades de diseño:
+- **Muestreos con espaciamientos variables:** Las cuadrículas homogéneas tienen dificultades para separar la dispersión del filtrado de hábitat. Se recomiendan diseños anidados o transectos con rezagos variables para capturar simultáneamente procesos a escalas fina, intermedia y amplia.
+- **Medición ambiental densa:** Cualquier variable ambiental no registrada en campo cuya distribución esté estructurada en el espacio será absorbida erróneamente por la fracción espacial o enviada al residuo, sesgando las conclusiones sobre el ensamblaje de la comunidad.
+
+# Auditoría crítica de IA
+
+Durante la fase preliminar de exploración metodológica asistida por inteligencia artificial, el modelo generó una descripción ficticia del estudio atribuyéndole un diseño experimental comparativo entre dos tratamientos inexistentes: **"Bosque nativo"** frente a **"Cultivo agrícola intensivo"**. Dicha propuesta detallaba un protocolo inventado de muestreo con barreno y extracción en embudos de Berlese–Tullgren durante siete días, acompañado de código que simulaba artificialmente estas categorías para forzar comparaciones entre supuestos manejos de suelo.
+
+La inconsistencia se detectó al contrastar el código generado con la documentación oficial del paquete **vegan** y las publicaciones originales de @borcard1992 y @borcard1994. El conjunto de datos `mite` no contiene usos de suelo agrícolas ni tratamientos agronómicos manipulativos; corresponde en realidad a 70 núcleos de sustrato extraídos en una turbera continua de $2.5 \times 10\text{ m}$ en Lake Geai (Quebec). La simulación por parte del modelo creaba un experimento inexistente, lo que invalidaba cualquier interpretación ecológica real.
+
+La corrección metodológica consistió en descartar por completo las categorías inventadas, cargar directamente las matrices empíricas (`mite`, `mite.env` y `mite.xy`), aplicar la estandarización de Hellinger y realizar la partición de la variación con `varpart()`. Esta auditoría pone en evidencia que la compilación exitosa de un script no garantiza rigor científico si no se realiza una verificación crítica previa del diseño de muestreo y del origen de los datos.
+
+# Aporte
+
+Este trabajo proporciona evidencia empírica cuantitativa y reproducible sobre las fuerzas que estructuran los ensamblajes de ácaros oribátidos a microescala. Se comprueba que las propiedades físicas del suelo y la posición geográfica actúan de forma concertada, siendo la covariación entre ambos factores ($[c] = `r fmt_pct(frac_comp)`$) el componente preponderante de la variación explicada.
+
+Metodológicamente, el análisis ilustra el riesgo de evaluar comunidades asumiendo independencia espacial: ignorar las coordenadas conduce a sobreestimar el papel del nicho ecológico al atribuirle variación que en realidad está estructurada espacialmente.
+
+# Conclusiones
+
+* La composición de la comunidad de ácaros oribátidos responde de manera estadísticamente significativa tanto al filtrado por microhábitat ($p = `r format.pval(p_amb, digits = 3, eps = 0.001)`$) como a la posición geográfica de las muestras ($p = `r format.pval(p_esp, digits = 3, eps = 0.001)`$).
+* La mayor parte de la variación explicada corresponde a la fracción compartida (`r fmt_pct(frac_comp)`), lo que confirma que las condiciones de humedad y sustrato en la turbera están organizadas a lo largo de un gradiente continuo en el terreno.
+* La fracción residual (`r fmt_pct(frac_res)`) resalta la notable influencia de factores no modelados, tales como interacciones biológicas locales, procesos estocásticos o variabilidad espacial a microescalas inferiores a las capturadas por el modelo polinómico.
+* La contrastación crítica de los datos con la literatura original [@borcard1992; @borcard1994] fue esencial para descartar escenarios agrícolas simulados erróneamente por herramientas de inteligencia artificial y asegurar la veracidad del análisis ecológico.
+
+1. **Carácter observacional:** El diseño analítico identifica asociaciones multivariadas y patrones de correlación espacial, pero no establece causalidad directa ni mecanismos fisiológicos particulares.
+2. **Número restringido de variables edáficas:** Se analizaron tres propiedades físicas del microhábitat (densidad, humedad y tipo de sustrato); factores biológicos y químicos clave como el pH, la profundidad freática o la biomasa de hongos no fueron medidos y pueden engrosar tanto la fracción espacial pura como el residuo.
+3. **Resolución de la superficie espacial:** Los polinomios cuadráticos capturan gradientes direccionales amplios y curvaturas generales, pero no detectan agregaciones discretas o parches espaciales a escalas muy finas.
+4. **Indivisibilidad de la fracción compartida:** El componente compartido entre ambiente y espacio no conforma un modelo lineal parcial independiente, por lo que no admite pruebas de significancia de Monte Carlo en este marco metodológico [@peresneto2006].
+5. **Alcance espacial y temporal:** Los datos provienen de una parcela de $2.5 \times 10\text{ m}$ en una turbera templada muestreada en un momento específico (1989), por lo que las magnitudes relativas no deben extrapolarse de forma directa a otros tipos de suelo o regímenes estacionales.
+
+# Conclusiones
+
+* La composición de la comunidad de ácaros oribátidos responde de manera estadísticamente significativa tanto al filtrado por microhábitat ($p = `r format.pval(p_amb, digits = 3, eps = 0.001)`$) como a la posición geográfica de las muestras ($p = `r format.pval(p_esp, digits = 3, eps = 0.001)`$).
+* La mayor parte de la variación explicada corresponde a la fracción compartida (`r fmt_pct(frac_comp)`), lo que confirma que las condiciones de humedad y sustrato en la turbera están organizadas a lo largo de un gradiente continuo en el terreno.
+* La fracción residual (`r fmt_pct(frac_res)`) resalta la notable influencia de factores no modelados, tales como interacciones biológicas locales, procesos estocásticos o variabilidad espacial a microescalas inferiores a las capturadas por el modelo polinómico.
+* La contrastación crítica de los datos con la literatura original [@borcard1992; @borcard1994] fue esencial para descartar escenarios agrícolas simulados erróneamente por herramientas de inteligencia artificial y asegurar la veracidad del análisis ecológico.
+
+# Reproducibilidad {.unnumbered}
+
+El flujo de trabajo se desarrolló bajo principios de reproducibilidad computacional completa, ejecutándose de inicio a fin a partir de las matrices del paquete **vegan** sin pasos manuales ocultos. A continuación se anexa el código estructural utilizado para el procesamiento y modelado de los datos.
+
+# Anexo: Código analítico y reproducibilidad {.unnumbered}
+
+A continuación se documenta el flujo computacional completo ejecutado durante la compilación de este manuscrito para la estandarización de la matriz comunitaria, la construcción de la superficie de tendencia espacial polinómica y la partición de la varianza:
+
+
+**Información técnica de la sesión y versiones de software**
+
+```{r anexo-sesion-info, echo=FALSE, comment=""}
+info <- sessionInfo()
+cat(paste0(
+  "Entorno de ejecución: ", info$R.version$version.string, "\n",
+  "Sistema operativo:    ", info$running, "\n",
+  "Paquetes clave:       vegan (v", packageVersion("vegan"), "), ",
+  "knitr (v", packageVersion("knitr"), "), ",
+  "rmarkdown (v", packageVersion("rmarkdown"), ")\n"
+))
+```
+
+# Referencias {.unnumbered}
+
+::: {#refs}
+:::

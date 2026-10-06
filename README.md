@@ -3,7 +3,7 @@ Técnicas de ecología numérica con *datasets* de R
 Biogeografía (GEO-131)
 2026-08-25
 
-[Presentación de diapositivas](https://github.com/biogeografia-202602/geo131-202602-pa01-tecnicas-ecologia-numerica-con-datasets-d-heriberto369/blob/main/acaros-pwerpoint.html)
+[Presentación de diapositivas](https://biogeografia-202602.github.io/geo131-202602-pa01-tecnicas-ecologia-numerica-con-datasets-d-heriberto369/acaros-pwerpoint.html)
 
 
 - [Fecha/hora de entrega](#fechahora-de-entrega)
